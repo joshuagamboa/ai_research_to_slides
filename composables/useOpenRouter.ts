@@ -36,11 +36,12 @@ export const useOpenRouter = () => {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error?.message || `API request failed with status ${response.status}`)
+        throw new Error(`API request failed with status ${response.status}`)
       }
 
       const data = await response.json()
+      if (!data?.choices?.[0]?.message?.content) {
+        throw new Error('Invalid response format from API')
       return data.choices[0].message.content
     } catch (err: any) {
       error.value = err.message || 'An unknown error occurred'

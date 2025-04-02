@@ -129,18 +129,24 @@ export function getRandomTemplates(count = 5): MarpTemplate[] {
   if (count <= 0) return []
   
   const readableTemplates = getReadableTemplates()
-  if (count >= readableTemplates.length) {
+  const maxTemplates = readableTemplates.length
+  
+  // Return all templates if count exceeds or equals available templates
+  if (count >= maxTemplates) {
     return [...readableTemplates]
   }
   
-  // Fisher-Yates shuffle for better randomization
+  // Create a copy of templates for shuffling
   const templates = [...readableTemplates]
-  for (let i = templates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[templates[i], templates[j]] = [templates[j], templates[i]]
+  const selectedTemplates = []
+  
+  // Select random templates without replacement
+  for (let i = 0; i < count; i++) {
+    const randomIndex = Math.floor(Math.random() * templates.length)
+    selectedTemplates.push(templates.splice(randomIndex, 1)[0])
   }
   
-  return templates.slice(0, count)
+  return selectedTemplates
 }
 
 /**

@@ -2,13 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ResearchForm from '~/components/molecules/ResearchForm.vue'
 
+import { ref } from 'vue'
+
 // Mock the composables
+const mockResearch = {
+  conductResearch: vi.fn().mockResolvedValue(undefined),
+  isLoading: ref(false),
+  error: ref(null)
+}
+
 vi.mock('~/composables/useResearch', () => ({
-  useResearch: () => ({
-    conductResearch: vi.fn().mockResolvedValue(undefined),
-    isLoading: false,
-    error: null
-  })
+  useResearch: () => mockResearch
 }))
 
 describe('ResearchForm.vue', () => {
@@ -65,28 +69,15 @@ describe('ResearchForm.vue', () => {
     // Submit form
     await wrapper.find('form').trigger('submit.prevent')
     
-    // Check that the form was submitted
-    const emitted = wrapper.emitted('submit')
-    expect(emitted).toBeTruthy()
-    expect(emitted[0][0]).toEqual({
-      topic: 'Test Topic',
-      subtopics: ['Test Subtopic']
-    })
+    // Check that conductResearch was called with correct parameters
+    expect(mockResearch.conductResearch).toHaveBeenCalledWith('Test Topic', ['Test Subtopic'])
+    expect(wrapper.emitted('research-complete')).toBeTruthy()
   })
 
   it('shows loading state when isLoading is true', async () => {
-    const mockResearch = {
-      conductResearch: vi.fn().mockResolvedValue(undefined),
-      isLoading: ref(true),
-      error: ref(null)
-    }
-    
-    vi.mock('~/composables/useResearch', () => ({
-      useResearch: () => mockResearch
-    }))
-    
+    mockResearch.isLoading.value = true
     const wrapper = mount(ResearchForm)
-    
     expect(wrapper.find('[data-test="submit-button"]').text()).toContain('Researching')
+    mockResearch.isLoading.value = false
   })
 })

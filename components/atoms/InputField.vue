@@ -65,51 +65,63 @@ defineEmits(['update:modelValue'])
 
 <style scoped>
 .input-field {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   width: 100%;
 }
 
 .input-label {
   display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  font-size: 0.875rem;
-  color: #2c3e50;
+  margin-bottom: 0.625rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: #1a202c;
+  letter-spacing: 0.025em;
 }
 
 .input {
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
   font-size: 1rem;
   line-height: 1.5;
-  color: #2c3e50;
+  color: #2d3748;
   background-color: #fff;
   background-clip: padding-box;
-  border: 1px solid #ced4da;
-  border-radius: 0.375rem;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.input:hover {
+  border-color: #cbd5e0;
 }
 
 .input:focus {
-  border-color: #3498db;
+  border-color: #4299e1;
   outline: 0;
-  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15);
 }
 
 .input:disabled {
-  background-color: #e9ecef;
-  opacity: 1;
+  background-color: #f7fafc;
+  border-color: #edf2f7;
+  opacity: 0.75;
+  cursor: not-allowed;
 }
 
 .input-error {
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
   font-size: 0.875rem;
-  color: #e74c3c;
+  color: #e53e3e;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .input-help {
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
   font-size: 0.875rem;
-  color: #6c757d;
+  color: #718096;
+  line-height: 1.4;
 }
 </style>

@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import TemplatePreview from '~/components/organisms/TemplatePreview.vue'
+import Button from '~/components/atoms/Button.vue'
 
 // Create mock templates
-const mockTemplates = [
+const mockTemplates = ref([
   {
     name: 'Template 1',
     theme: 'default',
@@ -23,21 +24,21 @@ const mockTemplates = [
     headingFont: 'Helvetica',
     bodyFont: 'Helvetica'
   }
-];
+]);
 
 // Create mock functions and state
 const mockLoadRandomTemplates = vi.fn();
 const mockSelectTemplate = vi.fn();
 const mockGenerateMarpSlides = vi.fn().mockResolvedValue('# MARP Slides');
-const mockSelectedTemplate = { value: null };
-const mockIsGenerating = { value: false };
-const mockError = { value: null };
+const mockSelectedTemplate = ref(null);
+const mockIsGenerating = ref(false);
+const mockError = ref(null);
 
 // Mock the composables
 vi.mock('~/composables/useMarp', () => {
   return {
     useMarp: () => ({
-      templates: { value: mockTemplates },
+      templates: mockTemplates,
       selectedTemplate: mockSelectedTemplate,
       loadRandomTemplates: mockLoadRandomTemplates,
       selectTemplate: mockSelectTemplate,
@@ -60,28 +61,14 @@ describe('TemplatePreview.vue', () => {
   })
 
   it('renders template cards for each template', async () => {
-    const mockTemplates = ref([
-      { name: 'Template 1', theme: 'default' },
-      { name: 'Template 2', theme: 'gaia' }
-    ])
-    
-    const mockMarp = {
-      templates: mockTemplates,
-      loadRandomTemplates: vi.fn(),
-      selectTemplate: vi.fn(),
-      generateMarpSlides: vi.fn(),
-      isGenerating: ref(false),
-      error: ref(null),
-      selectedTemplate: ref(null)
-    }
-    
-    vi.mock('~/composables/useMarp', () => ({
-      useMarp: () => mockMarp
-    }))
-    
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Presentation Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -95,6 +82,11 @@ describe('TemplatePreview.vue', () => {
     mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -124,6 +116,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Presentation Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -139,6 +136,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -154,6 +156,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -170,6 +177,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -183,6 +195,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -213,6 +230,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Presentation Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -226,6 +248,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -244,6 +271,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -270,6 +302,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     
@@ -281,6 +318,11 @@ describe('TemplatePreview.vue', () => {
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Test Outline'
+      },
+      global: {
+        stubs: {
+          Button: true
+        }
       }
     })
     

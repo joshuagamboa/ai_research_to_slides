@@ -75,66 +75,81 @@ const viewDetails = () => {
 <style scoped>
 .result-card {
   background-color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  margin-bottom: 2rem;
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 .result-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .card-header {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #eaeaea;
+  padding: 1.25rem 1.75rem;
+  border-bottom: 1px solid #edf2f7;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: #f8fafc;
 }
 
 .card-title {
   margin: 0;
-  font-size: 1.25rem;
-  color: #2c3e50;
+  font-size: 1.375rem;
+  color: #1a202c;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 
 .card-date {
-  font-size: 0.75rem;
-  color: #6c757d;
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .card-meta {
-  font-size: 0.875rem;
-  color: #6c757d;
-  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+  color: #4a5568;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
 }
 
 .card-summary {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.7;
+  color: #2d3748;
 }
 
 .subtopics-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: 0.625rem;
+  margin-top: 1.25rem;
 }
 
 .subtopic-tag {
-  background-color: #e9ecef;
-  color: #495057;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
+  background-color: #edf2f7;
+  color: #2d3748;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.subtopic-tag:hover {
+  background-color: #e2e8f0;
+  transform: translateY(-1px);
 }
 
 .card-content {
-  padding: 1.5rem;
-  color: #2c3e50;
-  line-height: 1.6;
+  padding: 1.75rem;
+  color: #2d3748;
+  line-height: 1.7;
 }
 
 .card-content pre {
@@ -155,18 +170,27 @@ const viewDetails = () => {
 }
 
 .view-button {
-  background-color: #3498db;
+  background-color: #4299e1;
   color: white;
   border: none;
-  border-radius: 0.25rem;
-  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: background-color 0.2s;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .view-button:hover {
-  background-color: #2980b9;
+  background-color: #3182ce;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.view-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Style for rendered markdown content */
