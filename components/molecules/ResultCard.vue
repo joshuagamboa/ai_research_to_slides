@@ -2,52 +2,54 @@
   <div class="result-card">
     <div class="card-header">
       <h3 class="card-title">{{ title }}</h3>
-      <span class="card-timestamp" v-if="timestamp">
-        {{ formatDate(timestamp) }}
+      <span class="card-date" v-if="result.timestamp">
+        {{ formatDate(result.timestamp) }}
       </span>
     </div>
     
     <div class="card-content">
-      <div v-if="contentType === 'markdown'" v-html="renderedContent"></div>
-      <pre v-else-if="contentType === 'code'">{{ content }}</pre>
-      <p v-else>{{ content }}</p>
+      <div class="card-meta">{{ result.topic }}</div>
+      <div class="card-summary" v-html="summary"></div>
+      
+      <div class="subtopics-container" v-if="result.subtopics && result.subtopics.length > 0">
+        <span class="subtopic-tag" v-for="subtopic in result.subtopics" :key="subtopic">
+          {{ subtopic }}
+        </span>
+      </div>
     </div>
     
-    <div class="card-actions" v-if="$slots.actions">
-      <slot name="actions"></slot>
+    <div class="card-actions">
+      <button 
+        class="view-button" 
+        @click="viewDetails"
+        data-test="view-details"
+      >
+        View Details
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { renderMarkdown } from '~/utils/markdown'
+import { renderMarkdown, extractTitle, createSummary } from '~/utils/markdown'
+import type { ResearchResult } from '~/types/research'
+
+const emit = defineEmits(['view-details'])
 
 const props = defineProps({
-  title: {
-    type: String,
+  result: {
+    type: Object as () => ResearchResult,
     required: true
-  },
-  content: {
-    type: String,
-    required: true
-  },
-  contentType: {
-    type: String,
-    default: 'text',
-    validator: (value: string) => ['text', 'markdown', 'code'].includes(value)
-  },
-  timestamp: {
-    type: String,
-    default: ''
   }
 })
 
-const renderedContent = computed(() => {
-  if (props.contentType === 'markdown') {
-    return renderMarkdown(props.content)
-  }
-  return props.content
+const title = computed(() => {
+  return extractTitle(props.result.content) || props.result.topic
+})
+
+const summary = computed(() => {
+  return createSummary(props.result.content)
 })
 
 const formatDate = (dateString: string) => {
@@ -63,6 +65,10 @@ const formatDate = (dateString: string) => {
   } catch (e) {
     return dateString
   }
+}
+
+const viewDetails = () => {
+  emit('view-details', props.result)
 }
 </script>
 
@@ -95,9 +101,34 @@ const formatDate = (dateString: string) => {
   color: #2c3e50;
 }
 
-.card-timestamp {
+.card-date {
   font-size: 0.75rem;
   color: #6c757d;
+}
+
+.card-meta {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+
+.card-summary {
+  margin-bottom: 1rem;
+}
+
+.subtopics-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.subtopic-tag {
+  background-color: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
 }
 
 .card-content {
@@ -121,6 +152,21 @@ const formatDate = (dateString: string) => {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.view-button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.view-button:hover {
+  background-color: #2980b9;
 }
 
 /* Style for rendered markdown content */

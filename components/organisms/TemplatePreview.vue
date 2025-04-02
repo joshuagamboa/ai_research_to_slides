@@ -1,6 +1,12 @@
 <template>
   <div class="template-preview">
     <h2>Select a Template</h2>
+    <div v-if="error" data-testid="error-message" class="error-message">
+      {{ error }}
+    </div>
+    <div v-if="isGenerating" data-testid="loading-indicator" class="loading-indicator">
+      <p>Generating slides...</p>
+    </div>
     <div class="templates-grid">
       <div
         v-for="(template, index) in templates"
@@ -8,6 +14,7 @@
         class="template-card"
         :class="{ 'selected': selectedIndex === index }"
         @click="selectTemplate(index)"
+        data-testid="template-card"
       >
         <div 
           class="preview-box"
@@ -52,18 +59,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useMarp } from '~/composables/useMarp'
 import Button from '~/components/atoms/Button.vue'
 
-const emit = defineEmits(['template-selected'])
+const props = defineProps({
+  outline: {
+    type: String,
+    required: true
+  }
+})
 
-const { templates, loadRandomTemplates, selectTemplate: setTemplate } = useMarp()
+const emit = defineEmits(['template-selected', 'slides-generated'])
+
+const { templates, loadRandomTemplates, selectTemplate: setTemplate, generateMarpSlides, isGenerating, error, selectedTemplate } = useMarp()
 const selectedIndex = ref<number | null>(null)
 
-const selectTemplate = (index: number) => {
+const selectTemplate = async (index: number) => {
   selectedIndex.value = index
   setTemplate(index)
+  
+  if (selectedTemplate.value) {
+    const slides = await generateMarpSlides(props.outline)
+    if (slides) {
+      emit('slides-generated', slides)
+    }
+  }
 }
 
 const refreshTemplates = () => {
@@ -72,8 +93,10 @@ const refreshTemplates = () => {
 }
 
 const confirmSelection = () => {
-  if (selectedIndex.value !== null) {
-    emit('template-selected', templates.value[selectedIndex.value])
+  if (selectedIndex.value !== null && templates.value[selectedIndex.value]) {
+    const selectedTemplateData = { ...templates.value[selectedIndex.value] }
+    setTemplate(selectedIndex.value)
+    emit('template-selected', selectedTemplateData)
   }
 }
 
@@ -143,5 +166,24 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1.5rem;
+}
+
+.error-message {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 0.25rem;
+}
+
+.loading-indicator {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background-color: #e2f3f5;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+  border-radius: 0.25rem;
+  text-align: center;
 }
 </style>

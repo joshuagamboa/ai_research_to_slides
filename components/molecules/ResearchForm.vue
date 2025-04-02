@@ -1,13 +1,14 @@
 <template>
   <div class="research-form">
     <h2>Research Topic</h2>
-    <form @submit.prevent="handleSubmit">
+    <form @submit.prevent="handleSubmit" data-test="research-form">
       <InputField
         v-model="topic"
         label="Main Topic"
         placeholder="Enter your research topic"
         required
         :error="topicError"
+        data-test="topic-input"
       />
       
       <div class="subtopics-container">
@@ -17,6 +18,7 @@
             @click="addSubtopic" 
             type="button" 
             variant="btn-outline"
+            data-test="add-subtopic"
           >
             Add Subtopic
           </Button>
@@ -27,12 +29,14 @@
             v-model="subtopics[index]"
             :label="`Subtopic ${index + 1}`"
             placeholder="Enter a subtopic"
+            data-test="subtopic-input"
           />
           <Button 
             @click="removeSubtopic(index)" 
             type="button" 
             variant="btn-danger"
             :disabled="subtopics.length <= 1"
+            data-test="remove-subtopic"
           >
             Remove
           </Button>
@@ -45,9 +49,11 @@
           variant="btn-primary" 
           :loading="isLoading"
           :disabled="!isValid"
+          data-test="submit-button"
         >
           {{ isLoading ? 'Researching...' : 'Start Research' }}
         </Button>
+        <p v-if="error" class="error-message" data-test="error-message">{{ error }}</p>
       </div>
     </form>
   </div>

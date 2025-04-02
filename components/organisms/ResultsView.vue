@@ -1,5 +1,21 @@
 <template>
   <div class="results-container">
+    <!-- Results list section -->
+    <section v-if="results && results.length > 0" class="results-list">
+      <div v-for="result in filteredAndSortedResults" :key="result.timestamp">
+        <ResultCard 
+          :result="result" 
+          @view-details="onSelectResult"
+          data-testid="result-card"
+        />
+      </div>
+    </section>
+    
+    <!-- No results message -->
+    <section v-else-if="results && results.length === 0" class="no-results" data-testid="no-results">
+      <p>No results found. Try adjusting your search criteria.</p>
+    </section>
+    
     <section v-if="researchResults" class="research-section">
       <h2>Research Results</h2>
       <div v-html="renderedResults" class="research-content" />
@@ -28,12 +44,19 @@ import { ref, computed } from 'vue'
 import { renderMarkdown } from '~/utils/markdown'
 import { useMarp } from '~/composables/useMarp'
 import Button from '~/components/atoms/Button.vue'
+import ResultCard from '~/components/molecules/ResultCard.vue'
 import TemplatePreview from '~/components/organisms/TemplatePreview.vue'
-import type { MarpTemplate } from '~/types/research'
+import type { MarpTemplate, ResearchResult } from '~/types/research'
+
+const emit = defineEmits(['select-result'])
 
 const props = defineProps<{
+  results?: ResearchResult[];
   researchResults?: string;
   presentationOutline?: string;
+  filterText?: string;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
 }>()
 
 const showTemplateSelector = ref(false)
@@ -42,6 +65,45 @@ const { generateMarpSlides, isGenerating, error } = useMarp()
 const renderedResults = computed(() => {
   return props.researchResults ? renderMarkdown(props.researchResults) : ''
 })
+
+const filteredAndSortedResults = computed(() => {
+  if (!props.results) return []
+  
+  // Filter results
+  let filtered = props.results
+  if (props.filterText) {
+    const filterLower = props.filterText.toLowerCase()
+    filtered = filtered.filter(result => {
+      return (
+        result.topic.toLowerCase().includes(filterLower) ||
+        result.content.toLowerCase().includes(filterLower) ||
+        result.subtopics.some(subtopic => subtopic.toLowerCase().includes(filterLower))
+      )
+    })
+  }
+  
+  // Sort results
+  if (props.sortBy) {
+    filtered = [...filtered].sort((a, b) => {
+      const aValue = a[props.sortBy as keyof ResearchResult]
+      const bValue = b[props.sortBy as keyof ResearchResult]
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return props.sortDirection === 'desc'
+          ? bValue.localeCompare(aValue)
+          : aValue.localeCompare(bValue)
+      }
+      
+      return 0
+    })
+  }
+  
+  return filtered
+})
+
+const onSelectResult = (result: ResearchResult) => {
+  emit('select-result', result)
+}
 
 const downloadOutline = () => {
   if (!props.presentationOutline) return

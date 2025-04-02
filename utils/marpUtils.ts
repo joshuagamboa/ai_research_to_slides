@@ -126,9 +126,21 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
  * @returns Array of randomly selected templates
  */
 export function getRandomTemplates(count = 5): MarpTemplate[] {
+  if (count <= 0) return []
+  
   const readableTemplates = getReadableTemplates()
-  const shuffled = [...readableTemplates].sort(() => 0.5 - Math.random())
-  return shuffled.slice(0, Math.min(count, shuffled.length))
+  if (count >= readableTemplates.length) {
+    return [...readableTemplates]
+  }
+  
+  // Fisher-Yates shuffle for better randomization
+  const templates = [...readableTemplates]
+  for (let i = templates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[templates[i], templates[j]] = [templates[j], templates[i]]
+  }
+  
+  return templates.slice(0, count)
 }
 
 /**
