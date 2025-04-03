@@ -139,13 +139,24 @@ export const useMarp = () => {
       // Check if the markdown contains R code chunks
       if (markdown.includes('```{r')) {
         try {
-          // Process R Markdown code chunks
-          processedMarkdown = await processRMarkdownChunks(markdown)
+          // Process the entire R Markdown document
+          processedMarkdown = await processRMarkdownContent(markdown)
           processedMarkdown = processedMarkdown.trim()
+
+          console.log('Processed R Markdown content:', processedMarkdown)
         } catch (rError) {
-          console.error('Error processing R Markdown chunks:', rError)
+          console.error('Error processing R Markdown content:', rError)
           error.value = `Error processing R code: ${rError.message}`
-          // Continue with the original markdown if R processing fails
+
+          // Fall back to processing individual chunks if document processing fails
+          try {
+            processedMarkdown = await processRMarkdownChunks(markdown)
+            processedMarkdown = processedMarkdown.trim()
+            console.log('Processed R Markdown chunks as fallback:', processedMarkdown)
+          } catch (chunkError) {
+            console.error('Error processing R Markdown chunks:', chunkError)
+            // Continue with the original markdown if all R processing fails
+          }
         }
       }
 
@@ -359,7 +370,136 @@ ${content}`;
   }
 
   /**
-   * Process R Markdown code chunks in the markdown content
+   * Process R Markdown content as a complete document
+   * @param markdown The markdown content with R code chunks
+   * @returns A promise that resolves to the processed markdown with R code chunks replaced by their outputs
+   */
+  const processRMarkdownContent = async (markdown: string): Promise<string> => {
+    isProcessingR.value = true
+    let processedMarkdown = markdown
+
+    try {
+      // Import the storage utilities
+      const { generateHash, storeContent, getDataUrl } = await import('~/utils/storageUtils')
+
+      // Generate a hash for the markdown content
+      const contentHash = generateHash(markdown)
+
+      // Call the R Markdown API endpoint to process the entire document
+      const { data, error: fetchError } = await useFetch('/api/rmarkdown', {
+        method: 'POST',
+        body: {
+          content: markdown,
+          type: 'document'
+        }
+      })
+
+      if (fetchError.value) {
+        throw new Error(`API error: ${fetchError.value.message}`)
+      }
+
+      if (data.value?.error) {
+        throw new Error(data.value.error)
+      }
+
+      if (!data.value?.result) {
+        throw new Error('No result returned from API')
+      }
+
+      const result = data.value.result
+
+      // Store plots in client-side storage
+      if (result.plots) {
+        Object.keys(result.plots).forEach(plotId => {
+          const plot = result.plots[plotId]
+          const plotHash = generateHash(plot.content)
+          storeContent(plotHash, 'image/svg+xml', plot.base64)
+        })
+      }
+
+      // Store tables in client-side storage
+      if (result.tables) {
+        Object.keys(result.tables).forEach(tableId => {
+          const table = result.tables[tableId]
+          const tableHash = generateHash(table.content)
+          storeContent(tableHash, 'text/html', table.base64)
+        })
+      }
+
+      // Process the markdown to replace R code chunks with their outputs
+      // Regular expression to find R code chunks
+      const rCodeChunkRegex = /```{r.*?}\n([\s\S]*?)\n```/g
+
+      // Find all R code chunks
+      const matches = [...processedMarkdown.matchAll(rCodeChunkRegex)]
+
+      // Process each R code chunk
+      for (const match of matches) {
+        const fullMatch = match[0]
+        const rCode = match[1].trim()
+        const rCodeHash = generateHash(rCode)
+
+        // Check if this is a plot
+        let replaced = false
+        if (result.plots) {
+          for (const plotId in result.plots) {
+            const plot = result.plots[plotId]
+            const plotContent = plot.content
+
+            // If the plot was generated from this code chunk
+            if (plotContent.includes(rCode) || rCode.includes(plotContent.substring(0, 20))) {
+              const plotHash = generateHash(plot.content)
+              const dataUrl = getDataUrl(plotHash)
+
+              if (dataUrl) {
+                // Replace with an image reference
+                processedMarkdown = processedMarkdown.replace(
+                  fullMatch,
+                  `![${plotId}](${dataUrl})`
+                )
+                replaced = true
+                break
+              }
+            }
+          }
+        }
+
+        // Check if this is a table
+        if (!replaced && result.tables) {
+          for (const tableId in result.tables) {
+            const table = result.tables[tableId]
+            const tableContent = table.content
+
+            // If the table was generated from this code chunk
+            if (tableContent.includes(rCode) || rCode.includes(tableContent.substring(0, 20))) {
+              // Replace with the HTML table
+              processedMarkdown = processedMarkdown.replace(
+                fullMatch,
+                table.content
+              )
+              replaced = true
+              break
+            }
+          }
+        }
+
+        // If not replaced, keep the original code chunk
+        if (!replaced) {
+          console.warn('Could not find output for R code chunk:', rCode)
+        }
+      }
+
+      return processedMarkdown
+    } catch (error) {
+      console.error('Error processing R Markdown content:', error)
+      throw error
+    } finally {
+      isProcessingR.value = false
+    }
+  }
+
+  /**
+   * Process individual R Markdown code chunks
    * @param markdown The markdown content with R code chunks
    * @returns A promise that resolves to the processed markdown with R code chunks replaced by their outputs
    */
@@ -368,6 +508,9 @@ ${content}`;
     let processedMarkdown = markdown
 
     try {
+      // Import the storage utilities
+      const { generateHash, storeContent } = await import('~/utils/storageUtils')
+
       // Regular expression to find R code chunks
       const rCodeChunkRegex = /```{r.*?}\n([\s\S]*?)\n```/g
 
@@ -378,6 +521,9 @@ ${content}`;
       for (const match of matches) {
         const fullMatch = match[0]
         const rCode = match[1]
+
+        // Generate a hash for the R code
+        const codeHash = generateHash(rCode)
 
         // Determine the type of R code chunk (plot, table, or regular code)
         let type = 'svg' // Default to SVG for plots
@@ -406,6 +552,11 @@ ${content}`;
           throw new Error(data.value.error)
         }
 
+        // Store the result in client-side storage
+        if (data.value?.base64 && data.value?.contentType) {
+          storeContent(codeHash, data.value.contentType, data.value.base64)
+        }
+
         // Replace the R code chunk with the result
         if (type === 'svg') {
           // For plots, replace with the SVG content
@@ -432,6 +583,7 @@ ${content}`;
     generateMarpSlides,
     convertMarkdownToSlides,
     processRMarkdownChunks,
+    processRMarkdownContent,
     isGenerating,
     isProcessingR,
     error,
