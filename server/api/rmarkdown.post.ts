@@ -82,13 +82,19 @@ export default defineEventHandler(async (event) => {
             table_counter <<- table_counter + 1
             table_id <- paste0('table-', table_counter)
 
+            # Add styling to the table
+            styled_table <- x
+            styled_table <- gsub('<table>', '<table style="border-collapse: collapse; margin: 1em auto; width: 90%; max-width: 1000px;">', styled_table)
+            styled_table <- gsub('<th>', '<th style="border: 1px solid #ddd; padding: 12px 15px; text-align: left; background-color: #f8f9fa;">', styled_table)
+            styled_table <- gsub('<td>', '<td style="border: 1px solid #ddd; padding: 12px 15px; text-align: left;">', styled_table)
+
             # Add to elements list
             elements$tables[[table_id]] <<- list(
-              content = x
+              content = styled_table
             )
 
             # Call the original hook
-            original_table_hook(x, options)
+            original_table_hook(styled_table, options)
           })
 
           # Render the document
@@ -304,8 +310,12 @@ export default defineEventHandler(async (event) => {
           }
 
           # Convert the table to HTML with styling
-          html_table <- knitr::kable(result, format = "html") %>%
-            kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+          html_table <- knitr::kable(result, format = "html")
+
+          # Add some basic styling
+          html_table <- gsub('<table>', '<table style="border-collapse: collapse; margin: 1em auto; width: 90%; max-width: 1000px;">', html_table)
+          html_table <- gsub('<th>', '<th style="border: 1px solid #ddd; padding: 12px 15px; text-align: left; background-color: #f8f9fa;">', html_table)
+          html_table <- gsub('<td>', '<td style="border: 1px solid #ddd; padding: 12px 15px; text-align: left;">', html_table)
 
           # Return the HTML
           cat(as.character(html_table))
