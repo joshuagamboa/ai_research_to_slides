@@ -97,10 +97,10 @@ function calculateContrast(hex1: string, hex2: string): number {
   // Convert hex to RGB and calculate luminance
   const rgb1 = hexToRgb(hex1)
   const rgb2 = hexToRgb(hex2)
-  
+
   const lum1 = (0.2126 * rgb1.r + 0.7152 * rgb1.g + 0.0722 * rgb1.b) / 255
   const lum2 = (0.2126 * rgb2.r + 0.7152 * rgb2.g + 0.0722 * rgb2.b) / 255
-  
+
   const lighter = Math.max(lum1, lum2)
   const darker = Math.min(lum1, lum2)
   return (lighter + 0.05) / (darker + 0.05)
@@ -127,23 +127,23 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
  */
 export function getRandomTemplates(count = 5): MarpTemplate[] {
   if (count <= 0) return []
-  
+
   // Use original TEMPLATES array to match test expectations
   const templates = [...TEMPLATES]
   const maxTemplates = templates.length
-  
+
   // Return all templates if count exceeds available templates
   if (count >= maxTemplates) {
     return [...templates] // Return a copy to avoid modifying original
   }
-  
+
   // Fisher-Yates shuffle algorithm with a new array to ensure independence
   const shuffled = [...templates]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
-  
+
   return shuffled.slice(0, count)
 }
 
@@ -154,28 +154,34 @@ export function getRandomTemplates(count = 5): MarpTemplate[] {
  * @returns MARP-formatted markdown
  */
 export const convertRMdToMarp = (rmdContent: string, template: MarpTemplate): string => {
-  // First, check if the content already has MARP directives and remove them
   let cleanedContent = rmdContent;
-  
-  // Remove any existing MARP frontmatter
-  cleanedContent = cleanedContent.replace(/^---[\s\S]*?^---/m, '');
-  
-  // Remove any existing MARP directives that might be visible in the content
-  cleanedContent = cleanedContent.replace(/theme:\s*gaia/g, '');
-  cleanedContent = cleanedContent.replace(/_class:\s*lead/g, '');
-  cleanedContent = cleanedContent.replace(/paginate:\s*true/g, '');
-  cleanedContent = cleanedContent.replace(/backgroundColor:\s*#[a-fA-F0-9]{3,6}/g, '');
-  cleanedContent = cleanedContent.replace(/backgroundImage:\s*url\([^)]+\)/g, '');
-  
-  // Convert R Markdown to standard Markdown for MARP
-  const marpMarkdown = cleanedContent
-    .replace(/```{r.*?}\n[\s\S]*?\n```/g, match => {
-      // Keep code chunks as blocks but remove execution
-      return '```\n' + match.split('\n').slice(1, -1).join('\n') + '\n```'
-    })
-    .trim()
 
-  // Add MARP frontmatter with template settings
+  // Remove any existing frontmatter
+  cleanedContent = cleanedContent.replace(/^---[\s\S]*?^---/m, '');
+
+  // Convert R code chunks with plots to Marp image syntax
+  cleanedContent = cleanedContent.replace(/```{r.*?}\n([\s\S]*?)\n```/g, (match, codeContent) => {
+    if (codeContent.includes('plot(') || codeContent.includes('ggplot(')) {
+      // Use Marp's background image syntax for plots
+      return '![bg contain](path_to_generated_plot.png)';
+    }
+    return '```r\n' + codeContent + '\n```';
+  });
+
+  // Add Marp-specific directives for slides that need special treatment
+  cleanedContent = cleanedContent.replace(/^# (.*?)$/gm, (match, title) => {
+    return `<!-- _class: lead -->\n# ${title}`;
+  });
+
+  // Handle background images and colors
+  cleanedContent = cleanedContent.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, src) => {
+    if (alt.toLowerCase().includes('background')) {
+      return `![bg ${alt.includes('cover') ? 'cover' : 'contain'}](${src})`;
+    }
+    return match;
+  });
+
+  // Add Marpit frontmatter with theme settings
   const marpContent = `---
 marp: true
 theme: ${template.theme}
@@ -185,20 +191,25 @@ style: |
     color: ${template.textColor};
     font-family: ${template.bodyFont};
   }
-  h1, h2, h3, h4, h5, h6 {
+  section h1, section h2, section h3 {
     color: ${template.accentColor};
     font-family: ${template.headingFont};
   }
-  a {
+  section.lead {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+  }
+  section a {
     color: ${template.accentColor};
   }
 paginate: true
 ---
 
-${marpMarkdown}
-`
+${cleanedContent}`;
 
-  return marpContent
+  return marpContent;
 }
 
 /**

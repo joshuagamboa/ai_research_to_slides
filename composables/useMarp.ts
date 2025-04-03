@@ -28,7 +28,12 @@ export const useMarp = () => {
       const marp = new Marp({
         html: true,  // Allow HTML in markdown
         math: true, // Enable math expressions
-        minifyCSS: false // Don't minify CSS for better readability
+        minifyCSS: false, // Don't minify CSS for better readability
+        markdown: {
+          // Enable GitHub Flavored Markdown tables
+          breaks: true,
+          tables: true
+        }
       })
 
       // Process the markdown with Marp
@@ -43,19 +48,60 @@ export const useMarp = () => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MARP Presentation</title>
   <style>
-    ${css}
-    /* Additional custom styling */
-    body { margin: 0; padding: 0; }
+    /* Table styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0;
+      font-size: 0.9em;
+    }
+    
+    table th,
+    table td {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+    
+    table th {
+      background-color: #f4f4f4;
+      font-weight: bold;
+    }
+    
+    table tr:nth-child(even) {
+      background-color: #f8f8f8;
+    }
+    
+    table tr:hover {
+      background-color: #f0f0f0;
+    }
+    
+    /* Dark theme support */
+    @media (prefers-color-scheme: dark) {
+      table th {
+        background-color: #2d2d2d;
+      }
+      table td {
+        border-color: #444;
+      }
+      table tr:nth-child(even) {
+        background-color: #2a2a2a;
+      }
+      table tr:hover {
+        background-color: #333;
+      }
+    }
   </style>
 </head>
 <body>
   ${html}
+  <script src="/fixTables.js"></script>
 </body>
 </html>
       `
 
       slidesHtml.value = fullHtml
-      
+
       // Open in new window if requested
       if (openInNewWindow && typeof window !== 'undefined') {
         const slidesWindow = window.open('', '_blank');
@@ -64,7 +110,7 @@ export const useMarp = () => {
           slidesWindow.document.close();
         }
       }
-      
+
       return fullHtml
     } catch (err: any) {
       error.value = err.message || 'An error occurred while processing the presentation'
@@ -73,7 +119,7 @@ export const useMarp = () => {
       isGenerating.value = false
     }
   }
-  
+
   /**
    * Converts Markdown to HTML slides using MARP
    * @param markdown The Markdown content to convert
@@ -82,14 +128,14 @@ export const useMarp = () => {
   const convertMarkdownToSlides = async (markdown: string): Promise<string | null> => {
     isGenerating.value = true
     error.value = null
-    
+
     try {
       // Normalize and prepare the markdown for proper slide separation
       let processedMarkdown = markdown.trim();
-      
+
       // First, check if the markdown already has MARP directives
       const hasMarpDirectives = /^---[\s\S]*?marp:\s*true[\s\S]*?---/m.test(processedMarkdown);
-      
+
       if (!hasMarpDirectives) {
         // If no MARP directives, add them at the beginning
         processedMarkdown = `---
@@ -103,28 +149,28 @@ backgroundImage: url('./background.svg')
 
 ${processedMarkdown}`;
       }
-      
+
       // Ensure proper slide separation
       // First, identify the content after the frontmatter
       const frontmatterEndMatch = processedMarkdown.match(/^---[\s\S]*?---\s*/m);
       let contentStartIndex = 0;
-      
+
       if (frontmatterEndMatch) {
         contentStartIndex = frontmatterEndMatch[0].length;
       }
-      
+
       // Extract content after frontmatter
       const frontmatter = processedMarkdown.substring(0, contentStartIndex);
       let content = processedMarkdown.substring(contentStartIndex);
-      
+
       // Process the content to ensure proper slide breaks
       // 1. Make sure each slide separator is on its own line with proper spacing
       content = content.replace(/([^\n])---([^\n])/g, '$1\n---\n$2');
-      
+
       // 2. Ensure there are blank lines around slide separators for proper parsing
       content = content.replace(/([^\n])\n---\n/g, '$1\n\n---\n\n');
       content = content.replace(/\n---\n([^\n])/g, '\n---\n\n$1');
-      
+
       // 3. Make sure the first slide has a title if not already present
       const firstSlideContent = content.split(/\n---\n/)[0];
       if (!firstSlideContent.match(/^#\s+/m)) {
@@ -133,13 +179,13 @@ ${processedMarkdown}`;
 
 ${content}`;
       }
-      
+
       // Reassemble the document with proper frontmatter and content
       processedMarkdown = frontmatter + content;
-      
+
       // Log for debugging
       console.log('Slide separators count:', (processedMarkdown.match(/\n---\n/g) || []).length + 1);
-      
+
       // Create a new Marp instance
       const marp = new Marp({
         // Marp options
@@ -147,14 +193,14 @@ ${content}`;
         math: true,
         minifyCSS: false
       })
-      
+
       // Process the markdown with Marp
       const { html, css } = marp.render(processedMarkdown)
-      
+
       // Extract title from Markdown if available
-      const titleMatch = processedMarkdown.match(/^#\s+(.+)$/m) 
+      const titleMatch = processedMarkdown.match(/^#\s+(.+)$/m)
       const title = titleMatch ? titleMatch[1] : 'MARP Presentation'
-      
+
       // Generate complete HTML document with the rendered content
       const fullHtml = `
 <!DOCTYPE html>
@@ -175,7 +221,7 @@ ${content}`;
 </body>
 </html>
       `
-      
+
       slidesHtml.value = fullHtml
       return fullHtml
     } catch (err: any) {
@@ -185,20 +231,20 @@ ${content}`;
       isGenerating.value = false
     }
   }
-  
+
   // Helper function to generate slide HTML from Markdown content
   const generateSlidesFromMarkdown = (markdown: string): string => {
     // This is a simplified implementation
     // In a real app, you would use a proper MARP converter
-    
+
     // Extract any non-slide content at the beginning (before MARP directives)
     let nonSlideContent = '';
     let slideContent = markdown;
-    
+
     // Look for the first MARP directive or slide separator
     const marpDirectiveIndex = markdown.indexOf('<!-- ');
     const firstSlideBreakIndex = markdown.indexOf('---');
-    
+
     // If there's content before the first MARP directive or slide break, it's non-slide content
     if (marpDirectiveIndex > 0 || firstSlideBreakIndex > 0) {
       const contentBreakIndex = Math.min(
@@ -208,19 +254,19 @@ ${content}`;
       nonSlideContent = markdown.substring(0, contentBreakIndex).trim();
       slideContent = markdown.substring(contentBreakIndex);
     }
-    
+
     // Split by slide breaks (--- in MARP)
     const sections = slideContent.split(/^---$/m).filter(section => section.trim())
-    
+
     // Generate HTML for each section
     return sections.map((section, index) => {
       // Extract heading if available
       const headingMatch = section.match(/^#+\s+(.+)$/m)
       const heading = headingMatch ? headingMatch[1] : ''
-      
+
       // Use the section as content
       let content = section
-      
+
       // Process tables before other conversions
       // Match table pattern with | column | headers | format
       content = content.replace(
@@ -228,19 +274,19 @@ ${content}`;
         (match) => {
           // Split the table into rows
           const rows = match.trim().split('\n');
-          
+
           // Extract header row and separator row
           const headerRow = rows[0];
           const separatorRow = rows[1];
           const dataRows = rows.slice(2);
-          
+
           // Process header cells
           const headerCells = headerRow
             .split('|')
             .filter(cell => cell.trim() !== '')
             .map(cell => `<th>${cell.trim()}</th>`)
             .join('');
-          
+
           // Process data rows
           const dataCellsHTML = dataRows
             .map(row => {
@@ -252,12 +298,12 @@ ${content}`;
               return `<tr>${cells}</tr>`;
             })
             .join('');
-          
+
           // Construct the HTML table
           return `<table class="marp-table"><thead><tr>${headerCells}</tr></thead><tbody>${dataCellsHTML}</tbody></table>`;
         }
       );
-      
+
       // Convert markdown-like syntax to HTML (simplified)
       content = content
         .replace(/^#+\s+.+$/gm, '') // Remove headings (already extracted)
@@ -267,7 +313,7 @@ ${content}`;
         .replace(/(<li>.+\n)+/g, '<ul>$&</ul>') // Wrap list items
         .replace(/`(.+?)`/g, '<code>$1</code>') // Inline code
         .replace(/\n\n/g, '</p><p>') // Paragraphs
-      
+
       return `
   <div class="slide">
     ${heading ? `<h1>${heading}</h1>` : ''}
@@ -296,11 +342,11 @@ ${content}`;
     }).join('')
   }
 
-  return { 
-    generateMarpSlides, 
+  return {
+    generateMarpSlides,
     convertMarkdownToSlides,
-    isGenerating, 
-    error, 
-    slidesHtml 
+    isGenerating,
+    error,
+    slidesHtml
   }
 }
