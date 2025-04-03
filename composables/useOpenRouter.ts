@@ -25,7 +25,7 @@ export const useOpenRouter = () => {
     streaming = true,
     onChunk?: (chunk: string) => void
   ): Promise<string | null> => {
-    console.log('queryDeepSeek called with:', { 
+     console.log('queryDeepSeek called with:', { 
       promptLength: prompt.length, 
       promptPreview: prompt.substring(0, 50) + '...', 
       maxTokens, 
@@ -39,17 +39,17 @@ export const useOpenRouter = () => {
 
     const config = useRuntimeConfig()
     const siteUrl = config.public.siteUrl
-    console.log('Site URL from config:', siteUrl)
+    // console.log('Site URL from config:', siteUrl)
 
     try {
-      console.log('Sending request to /api/chat endpoint')
+      // console.log('Sending request to /api/chat endpoint')
       const requestBody = {
         model: 'deepseek/deepseek-chat-v3-0324:free',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
         stream: streaming
       }
-      console.log('Request payload:', { ...requestBody, messages: '[content omitted for brevity]' })
+      // console.log('Request payload:', { ...requestBody, messages: '[content omitted for brevity]' })
       
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -59,7 +59,7 @@ export const useOpenRouter = () => {
         body: JSON.stringify(requestBody)
       })
 
-      console.log('Response received:', { status: response.status, ok: response.ok })
+      // console.log('Response received:', { status: response.status, ok: response.ok })
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -69,7 +69,7 @@ export const useOpenRouter = () => {
 
       // Handle streaming response
       if (streaming && response.body) {
-        console.log('Starting streaming response processing...')
+        // console.log('Starting streaming response processing...')
         const reader = response.body.getReader()
         const decoder = new TextDecoder('utf-8')
         let fullContent = ''
@@ -77,20 +77,20 @@ export const useOpenRouter = () => {
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            console.log('Stream completed')
+            // console.log('Stream completed')
             break
           }
           
           const chunk = decoder.decode(value, { stream: true })
-          console.log('Received raw chunk:', chunk.length, 'bytes')
+          // console.log('Received raw chunk:', chunk.length, 'bytes')
           const lines = chunk.split('\n').filter(line => line.trim() !== '')
-          console.log('Processing', lines.length, 'non-empty lines')
+          // console.log('Procconsole.log('queryDeepSeekessing', lines.length, 'non-empty lines')
           
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
               if (data === '[DONE]') {
-                console.log('Received [DONE] signal')
+                // console.log('Received [DONE] signal')
                 continue
               }
               
@@ -100,7 +100,7 @@ export const useOpenRouter = () => {
                   const parsed = JSON.parse(data)
                   const content = parsed.choices?.[0]?.delta?.content || ''
                   if (content) {
-                    console.log('Received content chunk:', content.length, 'characters')
+                    // console.log('Received content chunk:', content.length, 'characters')
                     fullContent += content
                     streamingContent.value += content
                     if (onChunk) onChunk(content)
@@ -108,7 +108,7 @@ export const useOpenRouter = () => {
                 } catch (e) {
                   console.error('Error parsing streaming response:', e)
                   // Log the problematic data for debugging
-                  console.log('Problematic JSON data:', data.substring(0, 150) + '...')
+                  // console.log('Problematic JSON data:', data.substring(0, 150) + '...')
                 }
               }
             }

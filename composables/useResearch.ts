@@ -25,7 +25,7 @@ export const useResearch = () => {
    * @returns A promise that resolves when the research is complete
    */
   const conductResearch = async (topic?: string): Promise<void> => {
-    debug.log('Starting research process', { topic });
+    // debug.log('Starting research process', { topic });
     isResearchComplete.value = false;
     researchResults.value = '';
     
@@ -43,7 +43,7 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
     
     // If a topic is provided, use it instead of the default
     if (topic) {
-      debug.log('Using provided topic for research', { topic });
+      // debug.log('Using provided topic for research', { topic });
       console.log('Conducting research on user-provided topic:', topic);
       
       researchPrompt = `Conduct a thorough research study on ${topic}. 
@@ -52,8 +52,8 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
     }
     
     try {
-        debug.log('Preparing research query');
-        debug.log('Sending research query', { promptLength: researchPrompt.length });
+        // debug.log('Preparing research query');
+        // debug.log('Sending research query', { promptLength: researchPrompt.length });
         
         // Use streaming API for real-time updates
         const result = await queryDeepSeek(
@@ -61,14 +61,14 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
             4000, 
             true, // Enable streaming
             (chunk) => {
-                debug.log('Received streaming chunk', { chunkLength: chunk.length });
+                // debug.log('Received streaming chunk', { chunkLength: chunk.length });
                 // This callback will be called for each chunk of the streaming response
                 researchResults.value += chunk
             }
         )
         
         if (result) {
-            debug.log('Research completed successfully', { resultLength: result.length });
+            // debug.log('Research completed successfully', { resultLength: result.length });
             // Ensure the final result is set (in case streaming had issues)
             researchResults.value = result
             
@@ -96,7 +96,7 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
    * @returns A promise that resolves when the outline generation is complete
    */
   const generateOutline = async (inNewWindow: boolean = false): Promise<void> => {
-    debug.log('Starting outline generation', { inNewWindow });
+    // debug.log('Starting outline generation', { inNewWindow });
     isOutlineComplete.value = false;
     presentationOutline.value = '';
     
@@ -108,8 +108,8 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
 
     const outlinePrompt = `Based on the following research, create a comprehensive presentation outline using MARP-compatible Markdown format:\n\n${researchResults.value}\n\n` +
       'Format the outline as follows:\n' +
-      '1. Your document MUST begin with these exact MARP directives (not in a code block, but as plain text at the very start of the document):\n' +
-      '---\ntheme: gaia\n_class: lead\npaginate: true\nbackgroundColor: #fff\nbackgroundImage: url(\'./background.svg\')\n---\n\n' +
+      '1. Your document MUST begin with these exact MARP directives as the first lines of your response:\n' +
+      '```\n---\nmarp: true\ntheme: gaia\nclass: lead\npaginate: true\nbackgroundColor: #fff\nbackgroundImage: url(\'./background.svg\')\n---\n```\n\n' +
       '2. Create a title slide with a clear # Title and ## Subtitle. Include an image on the left side using: ![bg left:40% 80%](./robot_ai_logo.svg)\n' +
       '3. ALWAYS use "---" on a separate line to create a slide break between each main topic or key point.\n' +
       '4. For each slide:\n' +
@@ -129,9 +129,9 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
       '7. For emphasis, use **bold** or *italic* text.\n' +
       '8. Include image placeholders if relevant: ![alt text](image-url)\n' +
       '9. IMPORTANT: Ensure each slide has a clear purpose and doesn\'t contain too much text that would cause overflow.\n' +
-      'IMPORTANT: Do NOT include the MARP directives as content within your slides. The directives should ONLY appear once at the very beginning of the document. Do NOT use R Markdown specific syntax.'
+      'IMPORTANT: The MARP directives should ONLY appear once at the very beginning of the document. Do NOT include them as visible content within your slides. Do NOT use R Markdown specific syntax.'
     
-    debug.log('Sending outline generation query', { promptLength: outlinePrompt.length });
+    // debug.log('Sending outline generation query', { promptLength: outlinePrompt.length });
     
     // Use streaming for real-time updates if not opening in a new window
     const result = await queryDeepSeek(
@@ -139,7 +139,7 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
       2000, 
       !inNewWindow, // Stream only if not opening in new window
       (chunk) => {
-        debug.log('Received outline chunk', { chunkLength: chunk.length });
+        // debug.log('Received outline chunk', { chunkLength: chunk.length });
         // This callback will be called for each chunk of the streaming response
         presentationOutline.value += chunk
       }

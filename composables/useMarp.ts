@@ -4,6 +4,7 @@
  */
 
 import { ref } from 'vue'
+import { Marp } from '@marp-team/marp-core'
 
 export const useMarp = () => {
   const isGenerating = ref(false)
@@ -23,12 +24,18 @@ export const useMarp = () => {
     slidesHtml.value = ''
 
     try {
-      // This would normally call a server endpoint to convert markdown to MARP slides
-      // For now, we'll simulate the conversion with a timeout
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Create a new Marp instance to process the markdown
+      const marp = new Marp({
+        html: true,  // Allow HTML in markdown
+        math: true, // Enable math expressions
+        minifyCSS: false // Don't minify CSS for better readability
+      })
 
-      // Simulate generated HTML with MARP-specific directives
-      const html = `
+      // Process the markdown with Marp
+      const { html, css } = marp.render(markdown)
+
+      // Generate complete HTML document with the rendered content
+      const fullHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -36,57 +43,31 @@ export const useMarp = () => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MARP Presentation</title>
   <style>
-    /* MARP styling */
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; }
-    .slide { height: 100vh; padding: 2rem; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
-    h1 { color: #2563eb; margin-bottom: 1rem; }
-    h2 { color: #4b5563; margin-bottom: 0.75rem; }
-    p { font-size: 1.2rem; line-height: 1.6; }
-    ul { font-size: 1.1rem; line-height: 1.5; }
-    code { background-color: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: monospace; }
-    pre { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
-    .slide-number { position: absolute; bottom: 1rem; right: 1rem; font-size: 0.8rem; color: #6b7280; }
+    ${css}
+    /* Additional custom styling */
+    body { margin: 0; padding: 0; }
   </style>
 </head>
 <body>
-  <div class="slide">
-    <h1>Generated Presentation</h1>
-    <h2>Using ${template} template</h2>
-    <p>Created with MARP from R Markdown</p>
-    <div class="slide-number">1</div>
-  </div>
-  <div class="slide">
-    <h1>Content Overview</h1>
-    <ul>
-      <li>Automatically generated from research</li>
-      <li>Formatted using MARP syntax</li>
-      <li>Ready for presentation</li>
-    </ul>
-    <div class="slide-number">2</div>
-  </div>
-  <div class="slide">
-    <h1>Research Content</h1>
-    <p>${markdown.substring(0, 150)}...</p>
-    <div class="slide-number">3</div>
-  </div>
+  ${html}
 </body>
 </html>
       `
 
-      slidesHtml.value = html
+      slidesHtml.value = fullHtml
       
       // Open in new window if requested
       if (openInNewWindow && typeof window !== 'undefined') {
         const slidesWindow = window.open('', '_blank');
         if (slidesWindow) {
-          slidesWindow.document.write(html);
+          slidesWindow.document.write(fullHtml);
           slidesWindow.document.close();
         }
       }
       
-      return html
+      return fullHtml
     } catch (err: any) {
-      error.value = err.message || 'An unknown error occurred'
+      error.value = err.message || 'An error occurred while processing the presentation'
       return null
     } finally {
       isGenerating.value = false
@@ -103,16 +84,79 @@ export const useMarp = () => {
     error.value = null
     
     try {
-      // In a real implementation, this would convert Markdown to MARP format
-      // and then generate HTML slides. For now, we'll simulate this process.
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Normalize and prepare the markdown for proper slide separation
+      let processedMarkdown = markdown.trim();
+      
+      // First, check if the markdown already has MARP directives
+      const hasMarpDirectives = /^---[\s\S]*?marp:\s*true[\s\S]*?---/m.test(processedMarkdown);
+      
+      if (!hasMarpDirectives) {
+        // If no MARP directives, add them at the beginning
+        processedMarkdown = `---
+marp: true
+theme: gaia
+class: lead
+paginate: true
+backgroundColor: #fff
+backgroundImage: url('./background.svg')
+---
+
+${processedMarkdown}`;
+      }
+      
+      // Ensure proper slide separation
+      // First, identify the content after the frontmatter
+      const frontmatterEndMatch = processedMarkdown.match(/^---[\s\S]*?---\s*/m);
+      let contentStartIndex = 0;
+      
+      if (frontmatterEndMatch) {
+        contentStartIndex = frontmatterEndMatch[0].length;
+      }
+      
+      // Extract content after frontmatter
+      const frontmatter = processedMarkdown.substring(0, contentStartIndex);
+      let content = processedMarkdown.substring(contentStartIndex);
+      
+      // Process the content to ensure proper slide breaks
+      // 1. Make sure each slide separator is on its own line with proper spacing
+      content = content.replace(/([^\n])---([^\n])/g, '$1\n---\n$2');
+      
+      // 2. Ensure there are blank lines around slide separators for proper parsing
+      content = content.replace(/([^\n])\n---\n/g, '$1\n\n---\n\n');
+      content = content.replace(/\n---\n([^\n])/g, '\n---\n\n$1');
+      
+      // 3. Make sure the first slide has a title if not already present
+      const firstSlideContent = content.split(/\n---\n/)[0];
+      if (!firstSlideContent.match(/^#\s+/m)) {
+        // Add a default title if none exists
+        content = `# Presentation
+
+${content}`;
+      }
+      
+      // Reassemble the document with proper frontmatter and content
+      processedMarkdown = frontmatter + content;
+      
+      // Log for debugging
+      console.log('Slide separators count:', (processedMarkdown.match(/\n---\n/g) || []).length + 1);
+      
+      // Create a new Marp instance
+      const marp = new Marp({
+        // Marp options
+        html: true,
+        math: true,
+        minifyCSS: false
+      })
+      
+      // Process the markdown with Marp
+      const { html, css } = marp.render(processedMarkdown)
       
       // Extract title from Markdown if available
-      const titleMatch = markdown.match(/^#\s+(.+)$/m) 
+      const titleMatch = processedMarkdown.match(/^#\s+(.+)$/m) 
       const title = titleMatch ? titleMatch[1] : 'MARP Presentation'
       
-      // Generate HTML directly (in a real implementation, this would use MARP)
-      const html = `
+      // Generate complete HTML document with the rendered content
+      const fullHtml = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -120,33 +164,22 @@ export const useMarp = () => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <style>
-    /* MARP styling */
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; }
-    .slide { height: 100vh; padding: 2rem; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
-    h1 { color: #2563eb; margin-bottom: 1rem; }
-    h2 { color: #4b5563; margin-bottom: 0.75rem; }
-    p { font-size: 1.2rem; line-height: 1.6; }
-    ul { font-size: 1.1rem; line-height: 1.5; }
-    code { background-color: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: monospace; }
-    pre { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
-    .slide-number { position: absolute; bottom: 1rem; right: 1rem; font-size: 0.8rem; color: #6b7280; }
+    ${css}
+    /* Additional custom styling */
+    body { margin: 0; padding: 0; }
+    .marp-slide { page-break-after: always; }
   </style>
 </head>
 <body>
-  <div class="slide">
-    <h1>${title}</h1>
-    <p>Generated with MARP</p>
-    <div class="slide-number">1</div>
-  </div>
-  ${generateSlidesFromMarkdown(markdown)}
+  ${html}
 </body>
 </html>
       `
       
-      slidesHtml.value = html
-      return html
+      slidesHtml.value = fullHtml
+      return fullHtml
     } catch (err: any) {
-      error.value = err.message || 'An error occurred while converting R Markdown to slides'
+      error.value = err.message || 'An error occurred while converting markdown to slides'
       return null
     } finally {
       isGenerating.value = false

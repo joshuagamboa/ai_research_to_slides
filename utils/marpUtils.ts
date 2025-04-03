@@ -154,13 +154,25 @@ export function getRandomTemplates(count = 5): MarpTemplate[] {
  * @returns MARP-formatted markdown
  */
 export const convertRMdToMarp = (rmdContent: string, template: MarpTemplate): string => {
+  // First, check if the content already has MARP directives and remove them
+  let cleanedContent = rmdContent;
+  
+  // Remove any existing MARP frontmatter
+  cleanedContent = cleanedContent.replace(/^---[\s\S]*?^---/m, '');
+  
+  // Remove any existing MARP directives that might be visible in the content
+  cleanedContent = cleanedContent.replace(/theme:\s*gaia/g, '');
+  cleanedContent = cleanedContent.replace(/_class:\s*lead/g, '');
+  cleanedContent = cleanedContent.replace(/paginate:\s*true/g, '');
+  cleanedContent = cleanedContent.replace(/backgroundColor:\s*#[a-fA-F0-9]{3,6}/g, '');
+  cleanedContent = cleanedContent.replace(/backgroundImage:\s*url\([^)]+\)/g, '');
+  
   // Convert R Markdown to standard Markdown for MARP
-  const marpMarkdown = rmdContent
+  const marpMarkdown = cleanedContent
     .replace(/```{r.*?}\n[\s\S]*?\n```/g, match => {
       // Keep code chunks as blocks but remove execution
       return '```\n' + match.split('\n').slice(1, -1).join('\n') + '\n```'
     })
-    .replace(/^---[\s\S]*?^---/m, '') // Remove YAML header
     .trim()
 
   // Add MARP frontmatter with template settings
