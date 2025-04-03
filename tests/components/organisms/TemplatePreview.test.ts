@@ -4,60 +4,67 @@ import { ref } from 'vue'
 import TemplatePreview from '~/components/organisms/TemplatePreview.vue'
 import Button from '~/components/atoms/Button.vue'
 
-// Create mock templates
-const mockTemplates = ref([
-  {
-    name: 'Template 1',
-    theme: 'default',
-    backgroundColor: '#ffffff',
-    textColor: '#000000',
-    accentColor: '#0000ff',
-    headingFont: 'Arial',
-    bodyFont: 'Arial'
-  },
-  {
-    name: 'Template 2',
-    theme: 'gaia',
-    backgroundColor: '#000000',
-    textColor: '#ffffff',
-    accentColor: '#ff0000',
-    headingFont: 'Helvetica',
-    bodyFont: 'Helvetica'
-  }
-]);
+// Create mock Marp composable
+const createMockMarp = () => {
+  const templates = ref([
+    {
+      name: 'Template 1',
+      theme: 'default',
+      backgroundColor: '#ffffff',
+      textColor: '#000000',
+      accentColor: '#0000ff',
+      headingFont: 'Arial',
+      bodyFont: 'Arial'
+    },
+    {
+      name: 'Template 2',
+      theme: 'gaia',
+      backgroundColor: '#000000',
+      textColor: '#ffffff',
+      accentColor: '#ff0000',
+      headingFont: 'Helvetica',
+      bodyFont: 'Helvetica'
+    }
+  ]);
 
-// Create mock functions and state
-const mockLoadRandomTemplates = vi.fn();
-const mockSelectTemplate = vi.fn();
-const mockGenerateMarpSlides = vi.fn().mockResolvedValue('# MARP Slides');
-const mockSelectedTemplate = ref(null);
-const mockIsGenerating = ref(false);
-const mockError = ref(null);
+  return {
+    templates,
+    selectedTemplate: ref(null),
+    loadRandomTemplates: vi.fn(),
+    selectTemplate: vi.fn(),
+    generateMarpSlides: vi.fn().mockResolvedValue('# MARP Slides'),
+    isGenerating: ref(false),
+    error: ref(null)
+  }
+}
+
+let mockMarp;
+let mockTemplates;
+let mockSelectedTemplate;
+let mockIsGenerating;
+let mockLoadRandomTemplates;
+let mockGenerateMarpSlides;
 
 // Mock the composables
-vi.mock('~/composables/useMarp', () => {
-  return {
-    useMarp: () => ({
-      templates: mockTemplates,
-      selectedTemplate: mockSelectedTemplate,
-      loadRandomTemplates: mockLoadRandomTemplates,
-      selectTemplate: mockSelectTemplate,
-      generateMarpSlides: mockGenerateMarpSlides,
-      isGenerating: mockIsGenerating,
-      error: mockError
-    })
-  }
-})
+vi.mock('~/composables/useMarp', () => ({
+  useMarp: () => mockMarp
+}))
 
 describe('TemplatePreview.vue', () => {
   beforeEach(() => {
-    // Reset mock state before each test
-    mockLoadRandomTemplates.mockClear();
-    mockSelectTemplate.mockClear();
-    mockGenerateMarpSlides.mockClear();
-    mockSelectedTemplate.value = null;
-    mockIsGenerating.value = false;
-    mockError.value = null;
+    // Create fresh mock for each test
+    mockMarp = createMockMarp();
+    mockTemplates = mockMarp.templates;
+    mockSelectedTemplate = mockMarp.selectedTemplate;
+    mockIsGenerating = mockMarp.isGenerating;
+    mockLoadRandomTemplates = mockMarp.loadRandomTemplates;
+    mockGenerateMarpSlides = mockMarp.generateMarpSlides;
+    vi.clearAllMocks();
+
+    // Reset the mock for useMarp
+    vi.mock('~/composables/useMarp', () => ({
+      useMarp: () => mockMarp
+    }))
   })
 
   it('renders template cards for each template', async () => {
@@ -94,25 +101,6 @@ describe('TemplatePreview.vue', () => {
   })
 
   it('selects a template when template card is clicked', async () => {
-    const mockTemplates = ref([
-      { name: 'Template 1', theme: 'default' },
-      { name: 'Template 2', theme: 'gaia' }
-    ])
-    
-    const mockMarp = {
-      templates: mockTemplates,
-      loadRandomTemplates: vi.fn(),
-      selectTemplate: vi.fn(),
-      generateMarpSlides: vi.fn(),
-      isGenerating: ref(false),
-      error: ref(null),
-      selectedTemplate: ref(null)
-    }
-    
-    vi.mock('~/composables/useMarp', () => ({
-      useMarp: () => mockMarp
-    }))
-    
     const wrapper = mount(TemplatePreview, {
       props: {
         outline: '# Presentation Outline'
@@ -131,7 +119,7 @@ describe('TemplatePreview.vue', () => {
 
   it('generates slides when a template is selected', async () => {
     // Set up a selected template
-    mockSelectedTemplate.value = mockTemplates[0];
+    mockMarp.selectedTemplate.value = mockMarp.templates.value[0];
     
     const wrapper = mount(TemplatePreview, {
       props: {
@@ -151,7 +139,7 @@ describe('TemplatePreview.vue', () => {
 
   it('emits slides-generated event when slides are generated', async () => {
     // Set up a selected template
-    mockSelectedTemplate.value = mockTemplates[0];
+    mockMarp.selectedTemplate.value = mockMarp.templates.value[0];
     
     const wrapper = mount(TemplatePreview, {
       props: {
@@ -189,8 +177,7 @@ describe('TemplatePreview.vue', () => {
   })
 
   it('shows error message when there is an error', async () => {
-    // Set an error message
-    mockError.value = 'Failed to generate slides';
+    mockMarp.error.value = 'Failed to generate slides';
     
     const wrapper = mount(TemplatePreview, {
       props: {
@@ -204,7 +191,7 @@ describe('TemplatePreview.vue', () => {
     })
     
     expect(wrapper.find('[data-testid="error-message"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="error-message"]').text()).toContain('Failed to generate slides')
+    expect(wrapper.find('[data-testid="error-message"]').text()).toBe('Failed to generate slides')
   })
 
   it('applies selected class to the selected template card', async () => {

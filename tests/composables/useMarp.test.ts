@@ -56,7 +56,7 @@ describe('useMarp composable', () => {
     })
     
     it('calls getRandomTemplates with the correct count', () => {
-      const { getRandomTemplates } = require('../../utils/marpUtils')
+      const { getRandomTemplates } = require('~/utils/marpUtils')
       
       harness.loadRandomTemplates(5)
       
@@ -92,7 +92,7 @@ describe('useMarp composable', () => {
     })
     
     it('calls convertRMdToMarp with content and template', async () => {
-      const { convertRMdToMarp } = require('../../utils/marpUtils')
+      const { convertRMdToMarp } = require('~/utils/marpUtils')
       
       // Select a template first
       harness.loadRandomTemplates(1)
@@ -122,7 +122,7 @@ describe('useMarp composable', () => {
       harness.selectTemplate(0)
       
       // Mock a delay in the conversion
-      const { convertRMdToMarp } = require('../../utils/marpUtils')
+      const { convertRMdToMarp } = require('~/utils/marpUtils')
       convertRMdToMarp.mockImplementationOnce(() => new Promise(resolve => {
         setTimeout(() => resolve('MARP: # Test'), 100)
       }))

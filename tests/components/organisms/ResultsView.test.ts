@@ -7,7 +7,7 @@ vi.mock('~/components/molecules/ResultCard.vue', () => ({
   default: {
     name: 'ResultCard',
     props: ['result'],
-    template: '<div class="mock-result-card" data-testid="result-card">{{ result.topic }}</div>'
+    template: '<div class="mock-result-card" data-testid="result-card" @click="$emit(\'view-details\', result)">{{ result.topic }}</div>'
   }
 }))
 
@@ -155,19 +155,26 @@ describe('ResultsView.vue', () => {
     global.URL.createObjectURL = vi.fn(() => 'blob:url')
     global.URL.revokeObjectURL = vi.fn()
     
-    const appendChildMock = vi.fn()
-    const removeChildMock = vi.fn()
     const clickMock = vi.fn()
-    
-    // Mock document.createElement and its methods
-    document.createElement = vi.fn().mockImplementation(() => ({
+    const linkElement = {
       href: '',
       download: '',
-      click: clickMock
-    }))
+      click: clickMock,
+      style: {}
+    }
     
-    document.body.appendChild = appendChildMock
-    document.body.removeChild = removeChildMock
+    // Mock document.createElement and its methods
+    const createElement = document.createElement.bind(document)
+    document.createElement = vi.fn().mockImplementation((tag) => {
+      if (tag === 'a') return linkElement
+      return createElement(tag)
+    })
+    
+    // Create a mock body element
+    const mockAppendChild = vi.fn()
+    const mockRemoveChild = vi.fn()
+    document.body.appendChild = mockAppendChild
+    document.body.removeChild = mockRemoveChild
     
     const wrapper = mount(ResultsView, {
       props: {
@@ -178,9 +185,12 @@ describe('ResultsView.vue', () => {
     await wrapper.find('button:nth-child(1)').trigger('click')
     
     expect(global.URL.createObjectURL).toHaveBeenCalled()
-    expect(appendChildMock).toHaveBeenCalled()
+    expect(mockAppendChild).toHaveBeenCalledWith(linkElement)
     expect(clickMock).toHaveBeenCalled()
-    expect(removeChildMock).toHaveBeenCalled()
+    expect(mockRemoveChild).toHaveBeenCalledWith(linkElement)
     expect(global.URL.revokeObjectURL).toHaveBeenCalled()
+    
+    // Restore original createElement
+    document.createElement = createElement
   })
 })

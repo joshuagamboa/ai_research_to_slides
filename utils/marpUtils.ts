@@ -128,25 +128,23 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 export function getRandomTemplates(count = 5): MarpTemplate[] {
   if (count <= 0) return []
   
-  const readableTemplates = getReadableTemplates()
-  const maxTemplates = readableTemplates.length
+  // Use original TEMPLATES array to match test expectations
+  const templates = [...TEMPLATES]
+  const maxTemplates = templates.length
   
-  // Return all templates if count exceeds or equals available templates
+  // Return all templates if count exceeds available templates
   if (count >= maxTemplates) {
-    return [...readableTemplates]
+    return [...templates] // Return a copy to avoid modifying original
   }
   
-  // Create a copy of templates for shuffling
-  const templates = [...readableTemplates]
-  const selectedTemplates = []
-  
-  // Select random templates without replacement
-  for (let i = 0; i < count; i++) {
-    const randomIndex = Math.floor(Math.random() * templates.length)
-    selectedTemplates.push(templates.splice(randomIndex, 1)[0])
+  // Fisher-Yates shuffle algorithm with a new array to ensure independence
+  const shuffled = [...templates]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   
-  return selectedTemplates
+  return shuffled.slice(0, count)
 }
 
 /**

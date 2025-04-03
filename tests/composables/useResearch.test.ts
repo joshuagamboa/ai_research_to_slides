@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useResearch } from '~/composables/useResearch'
 
 // Mock the dependencies
+const mockQueryDeepSeek = vi.fn().mockResolvedValue('Mock research results')
 vi.mock('~/composables/useOpenRouter', () => ({
   useOpenRouter: () => ({
-    queryDeepSeek: vi.fn().mockResolvedValue('Mock research results'),
+    queryDeepSeek: mockQueryDeepSeek,
     isLoading: false,
     error: { value: null }
   })
