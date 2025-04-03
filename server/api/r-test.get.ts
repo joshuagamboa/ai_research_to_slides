@@ -1,17 +1,18 @@
 import { defineEventHandler } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import path from 'path'
+import * as R from 'r-integration'
 
 export default defineEventHandler(async (event) => {
   try {
-    // Get the R integration functions from the plugin
-    const { $r } = event.context.nuxtApp
+    // Use R integration directly
 
     // Path to the test R script
     const scriptPath = path.resolve(process.cwd(), 'server/r-scripts/test.R')
 
     // Execute the R script
-    const result = await $r.runRScript(scriptPath)
+    // Note: The async version is not available, so we'll use the synchronous version
+    const result = R.executeRScript(scriptPath)
 
     return {
       success: true,

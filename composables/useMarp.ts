@@ -6,6 +6,7 @@
 
 import { ref } from 'vue'
 import { Marp } from '@marp-team/marp-core'
+import { useFetch } from '#app'
 
 export const useMarp = () => {
   const isGenerating = ref(false)
@@ -389,33 +390,32 @@ ${content}`;
         }
 
         // Call the R Markdown API endpoint to process the code
-        const response = await fetch('/api/rmarkdown', {
+        const { data, error: fetchError } = await useFetch('/api/rmarkdown', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
+          body: {
             content: rCode,
             type
-          })
+          }
         })
 
-        const data = await response.json()
+        if (fetchError.value) {
+          throw new Error(`API error: ${fetchError.value.message}`)
+        }
 
-        if (data.error) {
-          throw new Error(data.error)
+        if (data.value?.error) {
+          throw new Error(data.value.error)
         }
 
         // Replace the R code chunk with the result
         if (type === 'svg') {
           // For plots, replace with the SVG content
-          processedMarkdown = processedMarkdown.replace(fullMatch, data.result)
+          processedMarkdown = processedMarkdown.replace(fullMatch, data.value?.result || '')
         } else if (type === 'table') {
           // For tables, replace with the HTML table
-          processedMarkdown = processedMarkdown.replace(fullMatch, data.result)
+          processedMarkdown = processedMarkdown.replace(fullMatch, data.value?.result || '')
         } else {
           // For regular code, replace with the result as code
-          processedMarkdown = processedMarkdown.replace(fullMatch, `\`\`\`\n${data.result}\n\`\`\``)
+          processedMarkdown = processedMarkdown.replace(fullMatch, `\`\`\`\n${data.value?.result || ''}\n\`\`\``)
         }
       }
 
