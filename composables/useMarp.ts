@@ -1,6 +1,7 @@
 /**
  * Composable for interacting with the MARP library
  * Provides functionality to generate slides from markdown
+ * Includes R Markdown integration for handling R code chunks
  */
 
 import { ref } from 'vue'
@@ -10,6 +11,7 @@ export const useMarp = () => {
   const isGenerating = ref(false)
   const error = ref<string | null>(null)
   const slidesHtml = ref<string>('')
+  const isProcessingR = ref(false)
 
   /**
    * Generates MARP slides from markdown content
@@ -55,27 +57,27 @@ export const useMarp = () => {
       margin: 1em 0;
       font-size: 0.9em;
     }
-    
+
     table th,
     table td {
       padding: 12px;
       text-align: center;
       border: 1px solid #ddd;
     }
-    
+
     table th {
       background-color: #f4f4f4;
       font-weight: bold;
     }
-    
+
     table tr:nth-child(even) {
       background-color: #f8f8f8;
     }
-    
+
     table tr:hover {
       background-color: #f0f0f0;
     }
-    
+
     /* Dark theme support */
     @media (prefers-color-scheme: dark) {
       table th {
@@ -130,8 +132,21 @@ export const useMarp = () => {
     error.value = null
 
     try {
-      // Normalize and prepare the markdown for proper slide separation
-      let processedMarkdown = markdown.trim();
+      // First, process any R Markdown code chunks
+      let processedMarkdown = markdown.trim()
+
+      // Check if the markdown contains R code chunks
+      if (markdown.includes('```{r')) {
+        try {
+          // Process R Markdown code chunks
+          processedMarkdown = await processRMarkdownChunks(markdown)
+          processedMarkdown = processedMarkdown.trim()
+        } catch (rError) {
+          console.error('Error processing R Markdown chunks:', rError)
+          error.value = `Error processing R code: ${rError.message}`
+          // Continue with the original markdown if R processing fails
+        }
+      }
 
       // First, check if the markdown already has MARP directives
       const hasMarpDirectives = /^---[\s\S]*?marp:\s*true[\s\S]*?---/m.test(processedMarkdown);
@@ -342,10 +357,83 @@ ${content}`;
     }).join('')
   }
 
+  /**
+   * Process R Markdown code chunks in the markdown content
+   * @param markdown The markdown content with R code chunks
+   * @returns A promise that resolves to the processed markdown with R code chunks replaced by their outputs
+   */
+  const processRMarkdownChunks = async (markdown: string): Promise<string> => {
+    isProcessingR.value = true
+    let processedMarkdown = markdown
+
+    try {
+      // Regular expression to find R code chunks
+      const rCodeChunkRegex = /```{r.*?}\n([\s\S]*?)\n```/g
+
+      // Find all R code chunks
+      const matches = [...processedMarkdown.matchAll(rCodeChunkRegex)]
+
+      // Process each R code chunk
+      for (const match of matches) {
+        const fullMatch = match[0]
+        const rCode = match[1]
+
+        // Determine the type of R code chunk (plot, table, or regular code)
+        let type = 'svg' // Default to SVG for plots
+
+        if (rCode.includes('kable(') ||
+            rCode.includes('data.frame(') ||
+            rCode.includes('matrix(') ||
+            rCode.includes('tibble(')) {
+          type = 'table'
+        }
+
+        // Call the R Markdown API endpoint to process the code
+        const response = await fetch('/api/rmarkdown', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            content: rCode,
+            type
+          })
+        })
+
+        const data = await response.json()
+
+        if (data.error) {
+          throw new Error(data.error)
+        }
+
+        // Replace the R code chunk with the result
+        if (type === 'svg') {
+          // For plots, replace with the SVG content
+          processedMarkdown = processedMarkdown.replace(fullMatch, data.result)
+        } else if (type === 'table') {
+          // For tables, replace with the HTML table
+          processedMarkdown = processedMarkdown.replace(fullMatch, data.result)
+        } else {
+          // For regular code, replace with the result as code
+          processedMarkdown = processedMarkdown.replace(fullMatch, `\`\`\`\n${data.result}\n\`\`\``)
+        }
+      }
+
+      return processedMarkdown
+    } catch (error) {
+      console.error('Error processing R Markdown chunks:', error)
+      throw error
+    } finally {
+      isProcessingR.value = false
+    }
+  }
+
   return {
     generateMarpSlides,
     convertMarkdownToSlides,
+    processRMarkdownChunks,
     isGenerating,
+    isProcessingR,
     error,
     slidesHtml
   }
