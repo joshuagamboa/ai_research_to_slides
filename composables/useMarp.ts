@@ -7,6 +7,7 @@
 import { ref } from 'vue'
 import { Marp } from '@marp-team/marp-core'
 import { useFetch } from '#app'
+import { containsSvgImages, extractSvgDataUrls, convertMarkdownSvgToHtml } from '~/utils/svgUtils'
 
 export const useMarp = () => {
   const isGenerating = ref(false)
@@ -143,7 +144,14 @@ export const useMarp = () => {
           processedMarkdown = await processRMarkdownContent(markdown)
           processedMarkdown = processedMarkdown.trim()
 
-          console.log('Processed R Markdown content:', processedMarkdown)
+          // Log the first 200 characters for debugging
+          console.log('Processed R Markdown content (preview):',
+            processedMarkdown.substring(0, 200) + '...')
+
+          // Check for SVG images in the processed markdown
+          const hasSvgImages = containsSvgImages(processedMarkdown)
+          const svgDataUrls = extractSvgDataUrls(processedMarkdown)
+          console.log(`Contains SVG images: ${hasSvgImages}, found ${svgDataUrls.length} SVG data URLs`)
         } catch (rError) {
           console.error('Error processing R Markdown content:', rError)
           error.value = `Error processing R code: ${rError.message}`
@@ -159,6 +167,9 @@ export const useMarp = () => {
           }
         }
       }
+
+      // Convert any standard Markdown SVG images to HTML for better compatibility
+      processedMarkdown = convertMarkdownSvgToHtml(processedMarkdown)
 
       // First, check if the markdown already has MARP directives
       const hasMarpDirectives = /^---[\s\S]*?marp:\s*true[\s\S]*?---/m.test(processedMarkdown);
@@ -241,6 +252,20 @@ ${content}`;
     /* Additional custom styling */
     body { margin: 0; padding: 0; }
     .marp-slide { page-break-after: always; }
+
+    /* R plot styling */
+    .r-plot {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 1em 0;
+    }
+    .r-plot img {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
   </style>
 </head>
 <body>
@@ -452,10 +477,12 @@ ${content}`;
               const dataUrl = getDataUrl(plotHash)
 
               if (dataUrl) {
-                // Replace with an image reference
+                // Replace with an image reference with proper sizing for MARP
                 processedMarkdown = processedMarkdown.replace(
                   fullMatch,
-                  `![${plotId}](${dataUrl})`
+                  `<div class="r-plot">
+  <img src="${dataUrl}" alt="${plotId}" style="max-width: 100%; max-height: 70vh;" />
+</div>`
                 )
                 replaced = true
                 break

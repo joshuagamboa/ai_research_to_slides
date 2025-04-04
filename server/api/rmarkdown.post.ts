@@ -8,10 +8,16 @@ import * as crypto from 'crypto'
 
 export default defineEventHandler(async (event) => {
   try {
+    console.log('R Markdown API endpoint called')
     const body = await readBody(event)
     const { content, type } = body
 
+    console.log(`R Markdown request type: ${type}`)
+    console.log(`R Markdown content length: ${content ? content.length : 0} characters`)
+    console.log(`R Markdown content preview: ${content ? content.substring(0, 100) + '...' : 'none'}`)
+
     if (!content) {
+      console.error('R Markdown API error: No content provided')
       return { error: 'No content provided' }
     }
 
@@ -84,11 +90,15 @@ export default defineEventHandler(async (event) => {
       }
 
       case 'svg': {
+        console.log('Processing SVG request')
         // Convert R code to SVG and return as base64
         // Create temporary files
         const tempDir = os.tmpdir()
         const tempRScriptPath = path.join(tempDir, `script_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
         const tempSvgPath = path.join(tempDir, `plot_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.svg`)
+
+        console.log(`SVG temp script path: ${tempRScriptPath}`)
+        console.log(`SVG temp output path: ${tempSvgPath}`)
 
         // Create an R script file
         const rScript = `
@@ -103,12 +113,15 @@ export default defineEventHandler(async (event) => {
         fs.writeFileSync(tempRScriptPath, rScript)
 
         // Execute the R script
+        console.log('Executing R script for SVG generation...')
         const svgOutput = R.executeRScript(tempRScriptPath)
+        console.log(`SVG R script execution completed with ${svgOutput.length} lines of output`)
 
         // Read the SVG file directly
         let svgContent = ''
         try {
           svgContent = fs.readFileSync(tempSvgPath, 'utf8')
+          console.log(`SVG file read successfully, content length: ${svgContent.length} characters`)
 
           // Convert SVG to base64
           const svgBase64 = Buffer.from(svgContent).toString('base64')
@@ -151,10 +164,13 @@ export default defineEventHandler(async (event) => {
       }
 
       case 'table': {
+        console.log('Processing table request')
         // Convert R table to HTML
         // Create temporary files
         const tempDir = os.tmpdir()
         const tempRScriptPath = path.join(tempDir, `script_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
+
+        console.log(`Table temp script path: ${tempRScriptPath}`)
 
         // Create an R script file
         const rScript = `
@@ -181,8 +197,13 @@ export default defineEventHandler(async (event) => {
         fs.writeFileSync(tempRScriptPath, rScript)
 
         // Execute the R script
+        console.log('Executing R script for table generation...')
         const tableOutput = R.executeRScript(tempRScriptPath)
+        console.log(`Table R script execution completed with ${tableOutput.length} lines of output`)
+
         const tableHtml = tableOutput.join('\n')
+        console.log(`Table HTML content length: ${tableHtml.length} characters`)
+        console.log(`Table HTML content preview: ${tableHtml.substring(0, 100)}...`)
 
         // Convert HTML to base64
         const tableBase64 = Buffer.from(tableHtml).toString('base64')
@@ -289,10 +310,14 @@ function restoreHtmlContent(result, htmlPlaceholders) {
  * @returns Processed content with R code chunks replaced by their outputs
  */
 async function processRMarkdown(filePath) {
+  console.log(`Processing R Markdown file: ${filePath}`)
   // Create temporary files
   const tempDir = os.tmpdir()
   const tempRScriptPath = path.join(tempDir, `process_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
   const tempOutputPath = path.join(tempDir, `output_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.txt`)
+
+  console.log(`R Markdown temp script path: ${tempRScriptPath}`)
+  console.log(`R Markdown temp output path: ${tempOutputPath}`)
 
   // Create an R script to process the R Markdown file
   const rScript = `
@@ -316,15 +341,22 @@ async function processRMarkdown(filePath) {
   fs.writeFileSync(tempRScriptPath, rScript)
 
   try {
+    console.log('Executing R script for R Markdown processing...')
     // Execute the R script
     const result = R.executeRScript(tempRScriptPath)
+    console.log(`R script execution completed with ${result.length} lines of output`)
+
     const processedContent = result.join('\n')
+    console.log(`Processed content length: ${processedContent.length} characters`)
+    console.log(`Processed content preview: ${processedContent.substring(0, 100)}...`)
 
     // Try to read from the output file if the direct output is empty
     if (!processedContent.trim()) {
+      console.log('Direct output is empty, trying to read from output file')
       try {
         const fileContent = fs.readFileSync(tempOutputPath, 'utf8')
         if (fileContent.trim()) {
+          console.log(`Successfully read content from output file: ${fileContent.length} characters`)
           return fileContent
         }
       } catch (fileErr) {
