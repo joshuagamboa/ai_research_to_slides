@@ -7,9 +7,10 @@
         <div class="flex space-x-3">
           <button
             @click="generateSlides"
-            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 ease-in-out"
+            :disabled="isGenerating"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Generate Slides
+            {{ isGenerating ? 'Generating...' : 'Generate Slides' }}
           </button>
           <button
             @click="fixTableFormatting"
@@ -65,9 +66,11 @@
       </div>
 
       <!-- Loading Indicator -->
-      <div v-if="isLoading" class="bg-white shadow-lg rounded-xl p-6 mb-8 flex flex-col items-center justify-center py-8">
+      <div v-if="isLoading || isGenerating" class="bg-white shadow-lg rounded-xl p-6 mb-8 flex flex-col items-center justify-center py-8">
         <Loader size="large" />
-        <p class="mt-4 text-gray-600">Loading outline... Please wait</p>
+        <p class="mt-4 text-gray-600">
+          {{ isGenerating ? 'Generating slides... Please wait' : 'Loading outline... Please wait' }}
+        </p>
       </div>
 
       <!-- Outline Content -->
@@ -113,6 +116,7 @@ const router = useRouter()
 // Local state for the outline content
 const presentationOutline = ref('')
 const error = ref<string | null>(null)
+const isGenerating = ref(false)
 
 // Watch for changes to the outline and save to localStorage
 watch(presentationOutline, (newValue) => {
