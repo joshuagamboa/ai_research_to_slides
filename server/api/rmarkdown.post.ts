@@ -5,6 +5,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import * as crypto from 'crypto'
+import { logRExecution, logRFileOperation, logSvgOperation } from '~/utils/serverLogger'
+import { saveSvgToFile } from '~/utils/svgStorage'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -46,12 +48,18 @@ export default defineEventHandler(async (event) => {
         // Convert R Markdown to HTML
         // Create temporary files
         const tempDir = os.tmpdir()
-        const tempRmdPath = path.join(tempDir, `temp_${Date.now()}.Rmd`)
-        const tempRScriptPath = path.join(tempDir, `script_${Date.now()}.R`)
-        const tempHtmlPath = path.join(tempDir, `output_${Date.now()}.html`)
+        const tempRmdPath = path.join(tempDir, `temp_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.Rmd`)
+        const tempRScriptPath = path.join(tempDir, `script_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
+        const tempHtmlPath = path.join(tempDir, `output_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.html`)
 
         // Write the R Markdown content to a file
-        fs.writeFileSync(tempRmdPath, content)
+        try {
+          fs.writeFileSync(tempRmdPath, content)
+          logRFileOperation('write_file', tempRmdPath, true)
+        } catch (err) {
+          logRFileOperation('write_file', tempRmdPath, false, err)
+          throw err
+        }
 
         // Create an R script file to render the R Markdown
         const rScript = `
@@ -62,19 +70,52 @@ export default defineEventHandler(async (event) => {
         `
 
         // Write the R script to a file
-        fs.writeFileSync(tempRScriptPath, rScript)
+        try {
+          fs.writeFileSync(tempRScriptPath, rScript)
+          logRFileOperation('write_file', tempRScriptPath, true)
+        } catch (err) {
+          logRFileOperation('write_file', tempRScriptPath, false, err)
+          throw err
+        }
 
         // Execute the R script
-        const htmlOutput = R.executeRScript(tempRScriptPath)
+        const execStartTime = Date.now()
+        let htmlOutput
+
+        try {
+          htmlOutput = R.executeRScript(tempRScriptPath)
+          logRExecution(rScript, 'R script executed successfully', Date.now() - execStartTime)
+        } catch (err) {
+          logRExecution(rScript, null, Date.now() - execStartTime, err)
+          throw err
+        }
 
         // Read the HTML file directly
         let htmlContent = ''
         try {
           htmlContent = fs.readFileSync(tempHtmlPath, 'utf8')
+          logRFileOperation('read_file', tempHtmlPath, true)
+
+          // Log the HTML generation
+          logSvgOperation('html_generated', {
+            source: 'r-markdown',
+            type: 'html',
+            size: htmlContent.length,
+            generatedFrom: content.substring(0, 100) + (content.length > 100 ? '...' : '')
+          })
         } catch (err) {
+          logRFileOperation('read_file', tempHtmlPath, false, err)
           console.error('Error reading HTML file:', err)
           // If we can't read the file, use the output from R
           htmlContent = htmlOutput.join('\n')
+
+          // Log the fallback
+          logSvgOperation('html_fallback', {
+            source: 'r-output',
+            type: 'html',
+            size: htmlContent.length,
+            error: err.message || String(err)
+          })
         }
 
         // Clean up temporary files
@@ -82,7 +123,9 @@ export default defineEventHandler(async (event) => {
           fs.unlinkSync(tempRmdPath)
           fs.unlinkSync(tempRScriptPath)
           fs.unlinkSync(tempHtmlPath)
+          logRFileOperation('delete_files', 'temporary files', true)
         } catch (err) {
+          logRFileOperation('delete_files', 'temporary files', false, err)
           console.error('Error removing temporary files:', err)
         }
 
@@ -110,18 +153,43 @@ export default defineEventHandler(async (event) => {
         `
 
         // Write the R script to a file
-        fs.writeFileSync(tempRScriptPath, rScript)
+        try {
+          fs.writeFileSync(tempRScriptPath, rScript)
+          logRFileOperation('write_file', tempRScriptPath, true)
+        } catch (err) {
+          logRFileOperation('write_file', tempRScriptPath, false, err)
+          throw err
+        }
 
         // Execute the R script
         console.log('Executing R script for SVG generation...')
-        const svgOutput = R.executeRScript(tempRScriptPath)
-        console.log(`SVG R script execution completed with ${svgOutput.length} lines of output`)
+        const execStartTime = Date.now()
+        let svgOutput
+        let error = null
+
+        try {
+          svgOutput = R.executeRScript(tempRScriptPath)
+          console.log(`SVG R script execution completed with ${svgOutput.length} lines of output`)
+          logRExecution(rScript, 'R script executed successfully', Date.now() - execStartTime)
+        } catch (err) {
+          error = err
+          logRExecution(rScript, null, Date.now() - execStartTime, err)
+          throw err
+        }
 
         // Read the SVG file directly
         let svgContent = ''
         try {
           svgContent = fs.readFileSync(tempSvgPath, 'utf8')
           console.log(`SVG file read successfully, content length: ${svgContent.length} characters`)
+          logRFileOperation('read_file', tempSvgPath, true)
+
+          // Save the SVG to our storage
+          const { url } = saveSvgToFile(svgContent, {
+            source: 'r-code',
+            type: 'plot',
+            generatedFrom: content.substring(0, 100) + (content.length > 100 ? '...' : '')
+          })
 
           // Convert SVG to base64
           const svgBase64 = Buffer.from(svgContent).toString('base64')
@@ -130,35 +198,52 @@ export default defineEventHandler(async (event) => {
           try {
             fs.unlinkSync(tempRScriptPath)
             fs.unlinkSync(tempSvgPath)
+            logRFileOperation('delete_file', tempRScriptPath, true)
+            logRFileOperation('delete_file', tempSvgPath, true)
           } catch (err) {
-            console.error('Error removing temporary files:', err)
+            logRFileOperation('delete_file', 'temporary files', false, err)
           }
 
           return {
             result: svgContent,
             base64: svgBase64,
-            contentType: 'image/svg+xml'
+            contentType: 'image/svg+xml',
+            url
           }
         } catch (err) {
+          logRFileOperation('read_file', tempSvgPath, false, err)
           console.error('Error reading SVG file:', err)
+
           // If we can't read the file, use the output from R
           svgContent = svgOutput.join('\n')
 
+          // Save the SVG to our storage
+          const { url } = saveSvgToFile(svgContent, {
+            source: 'r-output',
+            type: 'plot',
+            generatedFrom: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+            error: 'File read error, using R output'
+          })
+
           // Convert SVG to base64
           const svgBase64 = Buffer.from(svgContent).toString('base64')
 
           // Clean up temporary files
           try {
             fs.unlinkSync(tempRScriptPath)
-            fs.unlinkSync(tempSvgPath)
+            if (fs.existsSync(tempSvgPath)) {
+              fs.unlinkSync(tempSvgPath)
+            }
+            logRFileOperation('delete_file', 'temporary files', true)
           } catch (cleanupErr) {
-            console.error('Error removing temporary files:', cleanupErr)
+            logRFileOperation('delete_file', 'temporary files', false, cleanupErr)
           }
 
           return {
             result: svgContent,
             base64: svgBase64,
-            contentType: 'image/svg+xml'
+            contentType: 'image/svg+xml',
+            url
           }
         }
       }
@@ -194,16 +279,39 @@ export default defineEventHandler(async (event) => {
         `
 
         // Write the R script to a file
-        fs.writeFileSync(tempRScriptPath, rScript)
+        try {
+          fs.writeFileSync(tempRScriptPath, rScript)
+          logRFileOperation('write_file', tempRScriptPath, true)
+        } catch (err) {
+          logRFileOperation('write_file', tempRScriptPath, false, err)
+          throw err
+        }
 
         // Execute the R script
         console.log('Executing R script for table generation...')
-        const tableOutput = R.executeRScript(tempRScriptPath)
-        console.log(`Table R script execution completed with ${tableOutput.length} lines of output`)
+        const execStartTime = Date.now()
+        let tableOutput
+
+        try {
+          tableOutput = R.executeRScript(tempRScriptPath)
+          console.log(`Table R script execution completed with ${tableOutput.length} lines of output`)
+          logRExecution(rScript, 'R script executed successfully', Date.now() - execStartTime)
+        } catch (err) {
+          logRExecution(rScript, null, Date.now() - execStartTime, err)
+          throw err
+        }
 
         const tableHtml = tableOutput.join('\n')
         console.log(`Table HTML content length: ${tableHtml.length} characters`)
         console.log(`Table HTML content preview: ${tableHtml.substring(0, 100)}...`)
+
+        // Log the table generation
+        logSvgOperation('table_generated', {
+          source: 'r-code',
+          type: 'table',
+          size: tableHtml.length,
+          generatedFrom: content.substring(0, 100) + (content.length > 100 ? '...' : '')
+        })
 
         // Convert HTML to base64
         const tableBase64 = Buffer.from(tableHtml).toString('base64')
@@ -211,7 +319,9 @@ export default defineEventHandler(async (event) => {
         // Clean up temporary files
         try {
           fs.unlinkSync(tempRScriptPath)
+          logRFileOperation('delete_file', tempRScriptPath, true)
         } catch (err) {
+          logRFileOperation('delete_file', tempRScriptPath, false, err)
           console.error('Error removing temporary file:', err)
         }
 
@@ -226,7 +336,7 @@ export default defineEventHandler(async (event) => {
         // Just execute the R code and return the result
         // Create temporary files
         const tempDir = os.tmpdir()
-        const tempRScriptPath = path.join(tempDir, `script_${Date.now()}.R`)
+        const tempRScriptPath = path.join(tempDir, `script_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
 
         // Create an R script file
         const rScript = `
@@ -240,15 +350,40 @@ export default defineEventHandler(async (event) => {
         `
 
         // Write the R script to a file
-        fs.writeFileSync(tempRScriptPath, rScript)
+        try {
+          fs.writeFileSync(tempRScriptPath, rScript)
+          logRFileOperation('write_file', tempRScriptPath, true)
+        } catch (err) {
+          logRFileOperation('write_file', tempRScriptPath, false, err)
+          throw err
+        }
 
         // Execute the R script
-        const result = R.executeRScript(tempRScriptPath)
+        const execStartTime = Date.now()
+        let result
+
+        try {
+          result = R.executeRScript(tempRScriptPath)
+          logRExecution(rScript, 'R script executed successfully', Date.now() - execStartTime)
+        } catch (err) {
+          logRExecution(rScript, null, Date.now() - execStartTime, err)
+          throw err
+        }
+
+        // Log the execution result
+        logSvgOperation('r_code_executed', {
+          source: 'r-code',
+          type: 'generic',
+          outputLines: result.length,
+          generatedFrom: content.substring(0, 100) + (content.length > 100 ? '...' : '')
+        })
 
         // Clean up temporary files
         try {
           fs.unlinkSync(tempRScriptPath)
+          logRFileOperation('delete_file', tempRScriptPath, true)
         } catch (err) {
+          logRFileOperation('delete_file', tempRScriptPath, false, err)
           console.error('Error removing temporary file:', err)
         }
 
