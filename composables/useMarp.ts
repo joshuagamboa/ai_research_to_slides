@@ -503,77 +503,42 @@ ${content}`;
    * @param markdown The markdown content with R code chunks
    * @returns A promise that resolves to the processed markdown with R code chunks replaced by their outputs
    */
-  const processRMarkdownChunks = async (markdown: string): Promise<string> => {
+  const processRMarkdownChunks = async (content: string): Promise<string> => {
+    if (!content) return ''
+
     isProcessingR.value = true
-    let processedMarkdown = markdown
-
     try {
-      // Import the storage utilities
-      const { generateHash, storeContent } = await import('~/utils/storageUtils')
-
-      // Regular expression to find R code chunks
-      const rCodeChunkRegex = /```{r.*?}\n([\s\S]*?)\n```/g
-
-      // Find all R code chunks
-      const matches = [...processedMarkdown.matchAll(rCodeChunkRegex)]
-
-      // Process each R code chunk
-      for (const match of matches) {
-        const fullMatch = match[0]
-        const rCode = match[1]
-
-        // Generate a hash for the R code
-        const codeHash = generateHash(rCode)
-
-        // Determine the type of R code chunk (plot, table, or regular code)
-        let type = 'svg' // Default to SVG for plots
-
-        if (rCode.includes('kable(') ||
-            rCode.includes('data.frame(') ||
-            rCode.includes('matrix(') ||
-            rCode.includes('tibble(')) {
-          type = 'table'
-        }
-
-        // Call the R Markdown API endpoint to process the code
-        const { data, error: fetchError } = await useFetch('/api/rmarkdown', {
-          method: 'POST',
-          body: {
-            content: rCode,
-            type
-          }
+      const response = await fetch('/api/rmarkdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          type: 'document'
         })
+      })
 
-        if (fetchError.value) {
-          throw new Error(`API error: ${fetchError.value.message}`)
-        }
-
-        if (data.value?.error) {
-          throw new Error(data.value.error)
-        }
-
-        // Store the result in client-side storage
-        if (data.value?.base64 && data.value?.contentType) {
-          storeContent(codeHash, data.value.contentType, data.value.base64)
-        }
-
-        // Replace the R code chunk with the result
-        if (type === 'svg') {
-          // For plots, replace with the SVG content
-          processedMarkdown = processedMarkdown.replace(fullMatch, data.value?.result || '')
-        } else if (type === 'table') {
-          // For tables, replace with the HTML table
-          processedMarkdown = processedMarkdown.replace(fullMatch, data.value?.result || '')
-        } else {
-          // For regular code, replace with the result as code
-          processedMarkdown = processedMarkdown.replace(fullMatch, `\`\`\`\n${data.value?.result || ''}\n\`\`\``)
-        }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`)
       }
 
-      return processedMarkdown
-    } catch (error) {
-      console.error('Error processing R Markdown chunks:', error)
-      throw error
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // Check if data.result is a string or an object
+      if (typeof data.result === 'string') {
+        return data.result
+      } else if (data.result && typeof data.result === 'object') {
+        // If it's an object, it might contain processed content
+        return data.result.content || data.result.markdown || JSON.stringify(data.result)
+      } else {
+        // Return the original content if we can't process the result
+        console.warn('Unexpected API response format:', data)
+        return content
+      }
     } finally {
       isProcessingR.value = false
     }

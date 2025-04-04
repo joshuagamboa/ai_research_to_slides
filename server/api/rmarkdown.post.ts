@@ -12,173 +12,29 @@ export default defineEventHandler(async (event) => {
     const { content, type } = body
 
     if (!content) {
-      return {
-        error: 'No content provided'
-      }
+      return { error: 'No content provided' }
     }
 
-    // Use R integration directly
+    // Clean content before processing
+    const { content: cleanedContent, htmlPlaceholders } = cleanRMarkdownForProcessing(content);
 
+    // Process based on type
     switch (type) {
       case 'document': {
-        // Process a complete R Markdown document
-        // Create temporary files
+        // Create temporary files with cleaned content
         const tempDir = os.tmpdir()
         const tempRmdPath = path.join(tempDir, `document_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.Rmd`)
-        const tempRScriptPath = path.join(tempDir, `script_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
-        const tempOutputDir = path.join(tempDir, `output_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`)
 
-        // Create output directory if it doesn't exist
-        if (!fs.existsSync(tempOutputDir)) {
-          fs.mkdirSync(tempOutputDir, { recursive: true })
-        }
+        // Write cleaned content
+        fs.writeFileSync(tempRmdPath, cleanedContent)
 
-        // Write the R Markdown content to a file
-        fs.writeFileSync(tempRmdPath, content)
+        // Process with R
+        const result = await processRMarkdown(tempRmdPath)
 
-        // Create an R script file to process the document and extract elements
-        const rScript = `
-          library(rmarkdown)
-          library(knitr)
-          library(jsonlite)
+        // Restore HTML content
+        const finalResult = restoreHtmlContent(result, htmlPlaceholders)
 
-          # Set knitr options to capture plots and tables
-          knitr::opts_chunk$set(
-            fig.path = '${tempOutputDir.replace(/\\/g, '/')}/figure-',
-            dev = 'svg',
-            fig.ext = '.svg'
-          )
-
-          # Create a list to store all elements
-          elements <- list()
-          elements$plots <- list()
-          elements$tables <- list()
-
-          # Custom hook to capture plots
-          plot_counter <- 0
-          original_plot_hook <- knitr::knit_hooks$get('plot')
-          knitr::knit_hooks$set(plot = function(x, options) {
-            plot_counter <<- plot_counter + 1
-            plot_path <- x
-            plot_id <- paste0('plot-', plot_counter)
-
-            # Read the SVG content
-            svg_content <- paste(readLines(plot_path), collapse = '\n')
-
-            # Add to elements list
-            elements$plots[[plot_id]] <<- list(
-              path = plot_path,
-              content = svg_content
-            )
-
-            # Call the original hook
-            original_plot_hook(x, options)
-          })
-
-          # Custom hook to capture tables
-          table_counter <- 0
-          original_table_hook <- knitr::knit_hooks$get('table')
-          knitr::knit_hooks$set(table = function(x, options) {
-            table_counter <<- table_counter + 1
-            table_id <- paste0('table-', table_counter)
-
-            # Add styling to the table
-            styled_table <- x
-            styled_table <- gsub('<table>', '<table style="border-collapse: collapse; margin: 1em auto; width: 90%; max-width: 1000px;">', styled_table)
-            styled_table <- gsub('<th>', '<th style="border: 1px solid #ddd; padding: 12px 15px; text-align: left; background-color: #f8f9fa;">', styled_table)
-            styled_table <- gsub('<td>', '<td style="border: 1px solid #ddd; padding: 12px 15px; text-align: left;">', styled_table)
-
-            # Add to elements list
-            elements$tables[[table_id]] <<- list(
-              content = styled_table
-            )
-
-            # Call the original hook
-            original_table_hook(styled_table, options)
-          })
-
-          # Render the document
-          output_file <- file.path('${tempOutputDir.replace(/\\/g, '/')}', 'output.html')
-          rmarkdown::render('${tempRmdPath.replace(/\\/g, '/')}', output_file = output_file, quiet = TRUE)
-
-          # Read the HTML output
-          html_content <- paste(readLines(output_file), collapse = '\n')
-          elements$html <- html_content
-
-          # Write the elements to a JSON file
-          elements_json <- toJSON(elements, auto_unbox = TRUE, pretty = TRUE)
-          elements_file <- file.path('${tempOutputDir.replace(/\\/g, '/')}', 'elements.json')
-          writeLines(elements_json, elements_file)
-
-          # Return the path to the elements file
-          cat(elements_file)
-        `
-
-        // Write the R script to a file
-        fs.writeFileSync(tempRScriptPath, rScript)
-
-        // Execute the R script
-        const scriptOutput = R.executeRScript(tempRScriptPath)
-        const elementsFilePath = scriptOutput[0]
-
-        // Read the elements JSON file
-        let elements = {}
-        try {
-          const elementsJson = fs.readFileSync(elementsFilePath, 'utf8')
-          elements = JSON.parse(elementsJson)
-
-          // Process the elements to add base64 encoding
-          if (elements.plots) {
-            Object.keys(elements.plots).forEach(plotId => {
-              const plot = elements.plots[plotId]
-              plot.base64 = Buffer.from(plot.content).toString('base64')
-            })
-          }
-
-          if (elements.tables) {
-            Object.keys(elements.tables).forEach(tableId => {
-              const table = elements.tables[tableId]
-              table.base64 = Buffer.from(table.content).toString('base64')
-            })
-          }
-
-          if (elements.html) {
-            elements.htmlBase64 = Buffer.from(elements.html).toString('base64')
-          }
-        } catch (err) {
-          console.error('Error reading elements file:', err)
-        }
-
-        // Clean up temporary files
-        try {
-          fs.unlinkSync(tempRmdPath)
-          fs.unlinkSync(tempRScriptPath)
-
-          // Recursively delete the output directory
-          if (fs.existsSync(tempOutputDir)) {
-            const deleteDir = (dirPath) => {
-              if (fs.existsSync(dirPath)) {
-                fs.readdirSync(dirPath).forEach((file) => {
-                  const curPath = path.join(dirPath, file)
-                  if (fs.lstatSync(curPath).isDirectory()) {
-                    deleteDir(curPath)
-                  } else {
-                    fs.unlinkSync(curPath)
-                  }
-                })
-                fs.rmdirSync(dirPath)
-              }
-            }
-            deleteDir(tempOutputDir)
-          }
-        } catch (err) {
-          console.error('Error removing temporary files:', err)
-        }
-
-        return {
-          result: elements,
-          success: true
-        }
+        return { result: finalResult }
       }
       case 'html': {
         // Convert R Markdown to HTML
@@ -378,10 +234,119 @@ export default defineEventHandler(async (event) => {
         return { result: result.join('\n') }
       }
     }
-  } catch (error) {
-    console.error('Error processing R Markdown:', error)
-    return {
-      error: error.message || 'An error occurred while processing R Markdown'
-    }
+  } catch (err) {
+    console.error('R Markdown processing error:', err)
+    return { error: err.message }
   }
 })
+
+function cleanRMarkdownForProcessing(content) {
+  if (!content) {
+    return {
+      content: '',
+      htmlPlaceholders: {}
+    };
+  }
+
+  // Remove MARP frontmatter if present
+  let cleaned = content.replace(/^---\s*marp:\s*true[\s\S]*?---/m, '');
+
+  // Remove HTML-like content temporarily
+  const htmlPlaceholders = {};
+  let placeholderCount = 0;
+
+  cleaned = cleaned.replace(/<[^>]+>/g, (match) => {
+    const placeholder = `__HTML_PLACEHOLDER_${placeholderCount}__`;
+    htmlPlaceholders[placeholder] = match;
+    placeholderCount++;
+    return placeholder;
+  });
+
+  return {
+    content: cleaned,
+    htmlPlaceholders
+  };
+}
+
+function restoreHtmlContent(result, htmlPlaceholders) {
+  if (!result || !htmlPlaceholders || Object.keys(htmlPlaceholders).length === 0) {
+    return result;
+  }
+
+  let restored = result;
+
+  // Replace each placeholder with its original HTML content
+  for (const [placeholder, html] of Object.entries(htmlPlaceholders)) {
+    restored = restored.replace(new RegExp(placeholder, 'g'), html);
+  }
+
+  return restored;
+}
+
+/**
+ * Process R Markdown file using R integration
+ * @param filePath Path to the R Markdown file
+ * @returns Processed content with R code chunks replaced by their outputs
+ */
+async function processRMarkdown(filePath) {
+  // Create temporary files
+  const tempDir = os.tmpdir()
+  const tempRScriptPath = path.join(tempDir, `process_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.R`)
+  const tempOutputPath = path.join(tempDir, `output_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.txt`)
+
+  // Create an R script to process the R Markdown file
+  const rScript = `
+    library(knitr)
+    library(rmarkdown)
+
+    # Read the R Markdown file
+    rmd_content <- readLines("${filePath.replace(/\\/g, '/')}")
+
+    # Process the R Markdown content
+    processed_content <- knit(text = rmd_content, quiet = TRUE)
+
+    # Write the processed content to a file
+    writeLines(processed_content, "${tempOutputPath.replace(/\\/g, '/')}")
+
+    # Print the processed content
+    cat(processed_content)
+  `
+
+  // Write the R script to a file
+  fs.writeFileSync(tempRScriptPath, rScript)
+
+  try {
+    // Execute the R script
+    const result = R.executeRScript(tempRScriptPath)
+    const processedContent = result.join('\n')
+
+    // Try to read from the output file if the direct output is empty
+    if (!processedContent.trim()) {
+      try {
+        const fileContent = fs.readFileSync(tempOutputPath, 'utf8')
+        if (fileContent.trim()) {
+          return fileContent
+        }
+      } catch (fileErr) {
+        console.warn('Could not read output file:', fileErr)
+      }
+    }
+
+    return processedContent
+  } finally {
+    // Clean up temporary files
+    try {
+      if (fs.existsSync(tempRScriptPath)) {
+        fs.unlinkSync(tempRScriptPath)
+      }
+      if (fs.existsSync(tempOutputPath)) {
+        fs.unlinkSync(tempOutputPath)
+      }
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath)
+      }
+    } catch (cleanupErr) {
+      console.error('Error cleaning up temporary files:', cleanupErr)
+    }
+  }
+}

@@ -48,9 +48,14 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
       // debug.log('Using provided topic for research', { topic });
       console.log('Conducting research on user-provided topic:', topic);
 
-      researchPrompt = `Conduct a thorough research study on ${topic}.
+      researchPrompt = `Conduct a thorough research study. ${topic}.
 
-Provide comprehensive information with academic rigor. Include relevant facts, theories, and current developments. Add data visulation such as charts, flowcharts and number plots. Organize the information into logical sections with appropriate headings.`;
+Provide comprehensive information with academic rigor. Include relevant facts, theories, and current developments. Add data visulation such as charts, flowcharts and number plots. Organize the information into logical sections with appropriate headings.
+
+Be verbose and use formal words. Do not ask the user any questions or clarifications. There is also no need to ackhowledge the request.
+
+Try to keep the output less than a thousand tokens.
+`;
     }
 
     try {

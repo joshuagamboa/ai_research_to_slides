@@ -219,3 +219,34 @@ export const getContrastColor = (bgColor: string): string => {
   const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000
   return brightness > 128 ? '#000000' : '#ffffff'
 }
+
+export const cleanRMarkdownForProcessing = (content: string) => {
+  // Remove MARP frontmatter if present
+  let cleaned = content.replace(/^---\s*marp:\s*true[\s\S]*?---/m, '');
+
+  // Remove HTML-like content temporarily
+  const htmlPlaceholders: {[key: string]: string} = {};
+  let placeholderCount = 0;
+
+  cleaned = cleaned.replace(/<[^>]+>/g, (match) => {
+    const placeholder = `__HTML_PLACEHOLDER_${placeholderCount}__`;
+    htmlPlaceholders[placeholder] = match;
+    placeholderCount++;
+    return placeholder;
+  });
+
+  return {
+    content: cleaned,
+    htmlPlaceholders
+  };
+}
+
+export const restoreHtmlContent = (content: string, htmlPlaceholders: {[key: string]: string}): string => {
+  let restored = content;
+  for (const [placeholder, html] of Object.entries(htmlPlaceholders)) {
+    restored = restored.replace(placeholder, html);
+  }
+  return restored;
+}
+
+// These functions are already exported above

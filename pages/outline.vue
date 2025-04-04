@@ -103,15 +103,16 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResearch } from '~/composables/useResearch'
 import { useMarp } from '~/composables/useMarp'
-import { convertRMdToMarp, TEMPLATES } from '~/utils/marpUtils'
+import { convertRMdToMarp, TEMPLATES, cleanRMarkdownForProcessing, restoreHtmlContent } from '~/utils/marpUtils'
 
 // Initialize composables
 const { presentationOutline: composableOutline, isLoading } = useResearch()
-const { convertMarkdownToSlides } = useMarp()
+const { convertMarkdownToSlides, processRMarkdownChunks, processRMarkdownContent } = useMarp()  // Import both R Markdown processing functions
 const router = useRouter()
 
 // Local state for the outline content
 const presentationOutline = ref('')
+const error = ref<string | null>(null)
 
 // Watch for changes to the outline and save to localStorage
 watch(presentationOutline, (newValue) => {
@@ -179,58 +180,69 @@ onMounted(() => {
 // Add state for selected template
 const selectedTemplate = ref(TEMPLATES[0]) // Default to first template
 
+/**
+ * Opens the generated slides in a new window
+ * @param html The HTML content of the slides
+ */
+const openSlidesInNewWindow = (html: string) => {
+  // Open slides in a new window
+  const slidesWindow = window.open('', '_blank')
+  if (slidesWindow) {
+    slidesWindow.document.write(html)
+    slidesWindow.document.close()
+  } else {
+    error.value = 'Popup blocked. Please allow popups for this site.'
+  }
+}
+
 // Function to generate slides from R Markdown content
 const generateSlides = async () => {
   if (!presentationOutline.value) return
 
-  // First fix any table formatting issues
-  fixTableFormatting()
+  isGenerating.value = true
+  error.value = null
 
-  // Clean only the outer markdown code block delimiters if they exist
-  const cleanRMarkdown = cleanMarkdownDelimiters(presentationOutline.value)
+  try {
+    // First fix any table formatting issues
+    fixTableFormatting()
 
-  // Convert R Markdown to MARP-compatible markdown
-  const marpMarkdown = convertRMdToMarp(cleanRMarkdown, selectedTemplate.value)
+    // Clean markdown and preserve HTML content
+    const { content: cleanedContent, htmlPlaceholders } = cleanRMarkdownForProcessing(presentationOutline.value)
 
-  // Add MARP frontmatter if not present
-  let finalMarkdown = marpMarkdown
-  if (!finalMarkdown.startsWith('---\nmarp: true')) {
-    finalMarkdown = `---
-marp: true
-theme: default
-paginate: true
-header: ''
-footer: ''
----
-
-${finalMarkdown}`
-  }
-
-  // Add special script to fix tables
-  finalMarkdown = finalMarkdown.replace(/^---([\s\S]*?)---/m, (match, frontmatter) => {
-    return `---${frontmatter}
-scriptPath: /fixTables.js
----`
-  })
-
-  // Log the content for debugging
-  console.log('Original content:', presentationOutline.value)
-  console.log('Clean R Markdown:', cleanRMarkdown)
-  console.log('MARP Markdown:', marpMarkdown)
-  console.log('Final Markdown:', finalMarkdown)
-
-  // Convert MARP markdown to HTML slides
-  const slidesHtml = await convertMarkdownToSlides(finalMarkdown)
-
-  if (slidesHtml) {
-    // Open slides in a new window
-    const slidesWindow = window.open('', '_blank')
-    if (slidesWindow) {
-      slidesWindow.document.write(slidesHtml)
-      slidesWindow.document.close()
-    } else {
-      alert('Popup blocked. Please allow popups for this site.')
+    // Process R Markdown chunks
+    let processedContent;
+    try {
+      // Try using processRMarkdownChunks first
+      processedContent = await processRMarkdownChunks(cleanedContent)
+    } catch (chunkError) {
+      console.warn('Error processing R Markdown chunks, falling back to processRMarkdownContent:', chunkError)
+      // Fall back to processRMarkdownContent if processRMarkdownChunks fails
+      try {
+        processedContent = await processRMarkdownContent(cleanedContent)
+      } catch (contentError) {
+        console.error('Both R Markdown processing methods failed:', contentError)
+        // If both methods fail, use the original content
+        processedContent = cleanedContent
+      }
     }
+
+    // Restore HTML content
+    const restoredContent = restoreHtmlContent(processedContent, htmlPlaceholders)
+
+    // Convert to MARP markdown
+    const marpMarkdown = convertRMdToMarp(restoredContent, selectedTemplate.value)
+
+    // Generate slides
+    const slidesHtml = await convertMarkdownToSlides(marpMarkdown)
+
+    if (slidesHtml) {
+      openSlidesInNewWindow(slidesHtml)
+    }
+  } catch (err) {
+    console.error('Error generating slides:', err)
+    error.value = err.message || 'Failed to generate slides'
+  } finally {
+    isGenerating.value = false
   }
 }
 
