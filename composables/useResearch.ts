@@ -137,14 +137,7 @@ Provide comprehensive information with academic rigor. Include relevant facts, t
       '   library(ggplot2)\n' +
       '   ggplot(data, aes(x=x, y=y)) + geom_point()\n' +
       '   ```\n' +
-      '10. For diagrams and flowcharts, use mermaid.js syntax:\n' +
-      '   ```mermaid\n' +
-      '   graph TD;\n' +
-      '     A-->B;\n' +
-      '     A-->C;\n' +
-      '     B-->D;\n' +
-      '     C-->D;\n' +
-      '   ```\n' +
+      '10. For diagrams and flowcharts, use simple text descriptions or ASCII art.\n' +
       '11. IMPORTANT: Ensure each slide has a clear purpose and doesn\'t contain too much text that would cause overflow.'
 
     // debug.log('Sending outline generation query', { promptLength: outlinePrompt.length });

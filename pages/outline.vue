@@ -29,7 +29,7 @@
       <!-- Note about R Markdown compatibility -->
       <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-md">
         <p class="text-blue-700">
-          This outline uses R Markdown format. You can include R code chunks for data visualization and mermaid.js diagrams.
+          This outline uses R Markdown format. You can include R code chunks for data visualization and tables.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ const cleanMarkdownDelimiters = (content: string): string => {
   }
 
   // Remove outro text if it exists
-  const outroText = "This outline balances conciseness with depth, using R Markdown's features for visual aids (tables, graphs, mermaid diagrams) while ensuring each slide is digestible. Let me know if you'd like to expand any section!"
+  const outroText = "This outline balances conciseness with depth, using R Markdown's features for visual aids (tables, graphs, charts) while ensuring each slide is digestible. Let me know if you'd like to expand any section!"
   if (cleaned.includes(outroText)) {
     cleaned = cleaned.replace(outroText, '').trim()
   }

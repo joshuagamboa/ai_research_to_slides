@@ -159,13 +159,10 @@ export const convertRMdToMarp = (rmdContent: string, template: MarpTemplate): st
   // Remove any existing frontmatter
   cleanedContent = cleanedContent.replace(/^---[\s\S]*?^---/m, '');
 
-  // Convert R code chunks with plots to Marp image syntax
+  // Process R code chunks - these will be handled by the R integration
+  // Just preserve them for now
   cleanedContent = cleanedContent.replace(/```{r.*?}\n([\s\S]*?)\n```/g, (match, codeContent) => {
-    if (codeContent.includes('plot(') || codeContent.includes('ggplot(')) {
-      // Use Marp's background image syntax for plots
-      return '![bg contain](path_to_generated_plot.png)';
-    }
-    return '```r\n' + codeContent + '\n```';
+    return match; // Keep the original R code chunk
   });
 
   // Add Marp-specific directives for slides that need special treatment
