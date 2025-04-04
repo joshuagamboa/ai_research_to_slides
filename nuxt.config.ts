@@ -15,10 +15,16 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-side environment variables
     openrouterApiKey: process.env.OPENROUTER_API_KEY,
-    
+
     // Public variables that are exposed to the client
     public: {
-      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      isDev: process.env.NODE_ENV === 'development'
     }
-  }
+  },
+
+  // Server middleware for logging
+  serverMiddleware: [
+    { path: '/api', handler: '~/server/middleware/logger.ts' }
+  ]
 })
